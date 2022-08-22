@@ -11,6 +11,15 @@ pipeline {
                 sh 'docker build -t fastapi-image .'
             }
         }
+        stage('Pushing to ECR') {
+            steps{  
+                script {
+                    sh "docker build -t newrepo ."
+                    sh "docker tag newrepo:latest 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
+                    sh "docker push 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
+                }
+            }
+        }
         stage('Test') {
             steps {
                 sh 'docker run -p 80:80 -i fastapi-image'
