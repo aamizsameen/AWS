@@ -14,10 +14,10 @@ pipeline {
         stage('Pushing to ECR') {
             steps{  
                 script {
-                    sh "aws ecr get-login-password | docker login --username AWS --password-stdin https://045996574415.dkr.ecr.us-east-1.amazonaws.com"
+                    sh "docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) https://045996574415.dkr.ecr.us-east-1.amazonaws.com"
                     sh "docker build -t newrepo ."
-                    sh "docker tag newrepo:latest 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
-                    sh "docker push 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
+                    sh "docker tag fastapi-image:latest 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
+                    sh "docker push 045996574415.dkr.ecr.ap-south-1.amazonaws.com/fastapi-image:latest"
                 }
             }
         }
