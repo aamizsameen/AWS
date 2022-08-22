@@ -14,8 +14,9 @@ pipeline {
         stage('Pushing to ECR') {
             steps{  
                 script {
+                    sh "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 045996574415.dkr.ecr.ap-south-1.amazonaws.com"
                     //sh "aws ecr get-login --region us-east-1"
-                    sh "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin https://045996574415.dkr.ecr.us-east-1.amazonaws.com"
+                    //sh "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin https://045996574415.dkr.ecr.us-east-1.amazonaws.com"
                     //sh "docker login -u AWS -p aws ecr get-login --region us-east-1 https://045996574415.dkr.ecr.us-east-1.amazonaws.com"
                     //sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin https://045996574415.dkr.ecr.us-east-1.amazonaws.com" 
                     //aws ecr get-login-password | docker login --username AWS --password-stdin ####.dkr.ecr.us-east-1.amazonaws.com
