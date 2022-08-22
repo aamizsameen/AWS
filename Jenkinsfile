@@ -13,7 +13,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'docker run -p 8000:8000 -t -i fastapi-image'
+                sh 'docker run -p 80:80 -t -i fastapi-image'
             }
         }
     }
