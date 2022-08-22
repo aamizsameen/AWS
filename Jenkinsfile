@@ -16,8 +16,8 @@ pipeline {
                 script {
                     sh "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 045996574415.dkr.ecr.ap-south-1.amazonaws.com"
                     sh "docker build -t newrepo ."
-                    sh "docker tag newrepo:new 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:new"
-                    sh "docker push 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:new"
+                    sh "docker tag newrepo:latest 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
+                    sh "docker push 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
                 }
             }
         }
