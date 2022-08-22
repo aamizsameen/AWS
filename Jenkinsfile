@@ -1,7 +1,7 @@
 pipeline {
     agent any 
     stages {
-        stage('cloning') {
+        stage('Cloning') {
             steps {
                 git branch: 'main', credentialsId: '24c36649-faee-4cdd-abf2-9a6c3b27bb5f', url: 'https://github.com/aamizsameen/AWS.git'
             }
