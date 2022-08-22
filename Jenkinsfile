@@ -24,14 +24,14 @@ pipeline {
                     //sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin https://045996574415.dkr.ecr.us-east-1.amazonaws.com" 
                     //aws ecr get-login-password | docker login --username AWS --password-stdin ####.dkr.ecr.us-east-1.amazonaws.com
                     sh "docker build -t newrepo ."
-                    sh "docker tag fastapi-image:latest 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
-                    sh "docker push 045996574415.dkr.ecr.ap-south-1.amazonaws.com/fastapi-image:latest"
+                    sh "docker tag newrepo:latest 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
+                    sh "docker push 045996574415.dkr.ecr.ap-south-1.amazonaws.com/newrepo:latest"
                 }
             }
         }
         stage('Test') {
             steps {
-                sh 'docker run -p 80:80 -i fastapi-image'
+                sh 'docker run -p 80:80 -i newrepo'
             }
         }
     }
