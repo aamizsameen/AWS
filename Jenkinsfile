@@ -9,17 +9,17 @@ pipeline {
         stage('Build') {
             steps {
                 sh 'docker build -t fastapi-image .'
-                sh 'sudo su - ec2-user'
+                //sh 'sudo su - ec2-user'
                 sh 'whoami'
                 sh 'hostname'
                 sh 'docker --version'
-                sh 'aws sts get-caller-identity'
+                //sh 'aws sts get-caller-identity'
             }
         }
         stage('Pushing to ECR') {
             steps{  
                 script {
-                    sh "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 045996574415.dkr.ecr.ap-south-1.amazonaws.com"
+                    sh "aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 045996574415.dkr.ecr.ap-south-1.amazonaws.com"
                     //sh "aws ecr get-login --region us-east-1"
                     //sh "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin https://045996574415.dkr.ecr.us-east-1.amazonaws.com"
                     //sh "docker login -u AWS -p aws ecr get-login --region us-east-1 https://045996574415.dkr.ecr.us-east-1.amazonaws.com"
