@@ -9,11 +9,6 @@ pipeline {
         stage('Build') {
             steps {
                 sh 'docker build -t fastapi-image .'
-                //sh 'sudo su - ec2-user'
-                sh 'whoami'
-                sh 'hostname'
-                sh 'docker --version'
-                //sh 'aws sts get-caller-identity'
             }
         }
         stage('Pushing to ECR') {
