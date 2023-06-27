@@ -1,0 +1,265 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Metadata:
+
+  AWS::CloudFormation::Interface:
+
+    ParameterGroups:
+
+    - Label:
+        default: Cloud Front Configuration
+
+      Parameters:
+      - AcmCertificateArn
+      - AlbDnsName
+      - DomainName
+      - RecordType
+      - PriceClass
+      - RecordName
+      - OriginConfig
+      - BucketName
+
+    ParameterLabels:
+      AcmCertificateArn:
+        default: ACM Certificate Arn
+      AlbDnsName:
+        default: ALB DNS Name
+      DomainName:
+        default: Domain Name
+      RecordType:
+        default: Record Type
+      PriceClass:
+        default: Price Class
+      RecordName:
+        default: Record Name
+      OriginConfig:
+        default: Origin Config
+      BucketName:
+        default: Bucket Name
+         
+Parameters:
+
+    AcmCertificateArn:
+      Default: arn:aws:acm:us-west-2:108970575545:certificate/0125c8b7-bd0d-4bef-b165-7d798e40260f
+      Type: String
+      Description: The ARN of the SSL certificate to use for the CloudFront distribution.
+
+    AlbDnsName:
+      Type: String
+      Description: The DNS Name of the ALB
+      
+    DomainName:
+      Default: priman.tk
+      Type: String
+      Description: Domain name 
+      
+    RecordType:
+      Default: 'A'
+      Type: String
+      Description: Choose a Record Type
+      AllowedValues:
+        - 'A'
+        - 'AAAA'
+        - 'CNAME'
+        - 'MX'
+        - 'TXT'
+        - 'PTR'
+        - 'SRV'
+        - 'SPF'
+        - 'NAPTR'
+        - 'CAA'
+        
+    PriceClass:
+      Default: 'PriceClass_All'
+      Type: String
+      Description: The CloudFront distribution price class
+      AllowedValues:
+        - 'PriceClass_100'
+        - 'PriceClass_200'
+        - 'PriceClass_All'
+        
+    RecordName:
+      Default: priman.tk
+      Type: String
+      Description: Enter the Record Name
+
+
+    OriginConfig:
+      Type: String
+      Default: 'CustomConfig'
+      Description: Choose the required Origin Config
+      AllowedValues:
+      - StaticWebsite
+      - CustomConfig
+
+    BucketName:
+      Default: 'cloudfront-axcess-bucket-1'
+      Type: String
+      Description: Enter the Bucket Name
+
+
+Conditions:
+
+  S3StaticWebsite: !Equals [ !Ref OriginConfig, StaticWebsite]
+
+  ALBCustomConfig: !Equals [ !Ref OriginConfig, CustomConfig]
+
+
+Resources:
+
+    DNS: 
+      Condition: ALBCustomConfig
+      Type: "AWS::Route53::HostedZone"
+      Properties: 
+        HostedZoneConfig: 
+          Comment: 'My hosted zone for example.com'
+        Name: !Ref DomainName
+          
+
+    TheCloudFrontDistribution1:
+      Condition: S3StaticWebsite
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          DefaultCacheBehavior:
+            Compress: true
+            ForwardedValues:
+              QueryString: false
+            TargetOriginId: the-s3-bucket
+            ViewerProtocolPolicy: redirect-to-https
+          DefaultRootObject: index.html
+          CustomErrorResponses:
+            - ErrorCachingMinTTL: 300
+              ErrorCode: 403
+              ResponseCode: 404
+              ResponsePagePath: /404.html
+          Enabled: true
+          HttpVersion: http2
+          Origins:
+            - DomainName:
+                !Join [ "", [ !Ref TheBucket, ".s3.amazonaws.com" ] ]
+              Id: the-s3-bucket
+              S3OriginConfig:
+                OriginAccessIdentity:
+                  !Join [ "", [ "origin-access-identity/cloudfront/", !Ref TheCloudFrontOriginAccessIdentity ] ]
+          PriceClass: !Ref PriceClass
+          ViewerCertificate:
+            AcmCertificateArn: !Ref AcmCertificateArn
+            MinimumProtocolVersion: TLSv1
+            SslSupportMethod: sni-only
+
+        Tags:
+          - Key: Domain
+            Value: !Ref AlbDnsName
+            
+            
+            
+    TheCloudFrontOriginAccessIdentity:
+      Condition: S3StaticWebsite
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment: !Sub 'CloudFront OAI for ${DomainName}'
+          
+          
+    TheBucket:
+      Condition: S3StaticWebsite
+      Type: AWS::S3::Bucket
+      DeletionPolicy: Retain
+      Properties:
+        BucketName: !Ref BucketName
+        Tags:
+          - Key: Domain
+            Value: !Ref DomainName
+
+    TheBucketPolicy:
+      Condition: S3StaticWebsite
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref TheBucket
+        PolicyDocument:
+          Statement:
+            -
+              Action:
+                - s3:GetObject
+              Effect: Allow
+              Resource: !Join [ "", [ "arn:aws:s3:::", !Ref TheBucket, "/*" ] ]
+              Principal:
+                CanonicalUser: !GetAtt TheCloudFrontOriginAccessIdentity.S3CanonicalUserId
+
+
+    CloudFrontDistribution2:
+      Condition: ALBCustomConfig
+      Type: 'AWS::CloudFront::Distribution'
+      Properties:
+        DistributionConfig:
+          Aliases:
+          - !Ref DomainName
+          Origins:
+            - DomainName: !Ref AlbDnsName
+              Id: !Ref AlbDnsName
+              CustomOriginConfig:
+                HTTPPort: '80'
+                HTTPSPort: '443'
+                OriginProtocolPolicy: http-only
+                OriginKeepaliveTimeout: '5'
+                OriginReadTimeout: '30'
+                OriginSSLProtocols: 
+                  - TLSv1
+                  - TLSv1.1
+                  - TLSv1.2
+                  - SSLv3
+          Enabled: true
+          HttpVersion: 'http2'
+          DefaultCacheBehavior:
+            Compress: true
+            TargetOriginId: !Ref AlbDnsName
+            ForwardedValues:
+              QueryString: false
+            ViewerProtocolPolicy: redirect-to-https
+
+          PriceClass: !Ref PriceClass
+          ViewerCertificate:
+            AcmCertificateArn: !Ref AcmCertificateArn
+            MinimumProtocolVersion: TLSv1
+            SslSupportMethod: sni-only
+
+
+
+    myDNSRecord:
+      Condition: ALBCustomConfig
+      Type: AWS::Route53::RecordSetGroup
+      Properties:
+        HostedZoneName: !Join ['', [!Ref DomainName, '.']]
+        Comment: DNS name for my instance.
+        RecordSets: 
+        - Name: !Ref RecordName
+          Type: !Ref RecordType
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt 'CloudFrontDistribution2.DomainName'
+
+
+Outputs:
+
+  DNS:
+    Condition: ALBCustomConfig
+    Value: !Ref DNS
+  TheCloudFrontDistribution1:
+    Condition: S3StaticWebsite
+    Value: !Ref TheCloudFrontDistribution1
+  TheCloudFrontOriginAccessIdentity:
+    Condition: S3StaticWebsite
+    Value: !Ref TheCloudFrontOriginAccessIdentity
+  TheBucket:
+    Condition: S3StaticWebsite
+    Value: !Ref TheBucket
+  TheBucketPolicy:
+    Condition: S3StaticWebsite
+    Value: !Ref TheBucketPolicy
+  CloudFrontDistribution2:
+    Condition: ALBCustomConfig
+    Value: !Ref CloudFrontDistribution2
+  myDNSRecord:
+    Condition: ALBCustomConfig
+    Value: !Ref myDNSRecord

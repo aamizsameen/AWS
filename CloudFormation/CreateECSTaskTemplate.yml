@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CF Template to create TaskDefinition for Sourcewiz Application"
+
+Parameters:
+  TaskDefinitionName:
+    Type: String
+    Description: The Name of Task Definition
+
+  ApplicationContainerName:
+    Type: String
+    Description: Name of container
+
+  ApplicationImage:
+    Type: String
+    Description: ARN of the Docker Image
+
+  ApplicationImageMemory:
+    Type: Number
+    Description: Memory required to run this container
+
+  ApplicationContainerPort:
+    Type: Number
+    Description: Provide the container port of service
+
+  ApplicationImageCPU:
+    Type: Number
+    Description: CPU required to run python backend in MB Eg-1024 for 1GB
+  VolumeName:
+    Type: String
+    Description: Volume Name to be mount on the Container Path
+
+  EfsId:
+    Type: String
+    Description: EFS Id
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${TaskDefinitionName}"
+
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub SourceECSTaskExecutionRole-${TaskDefinitionName}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "ecs-tasks.amazonaws.com"
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        - "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+      Policies:
+        - PolicyName: ecs-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetResourcePolicy"
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                  - "secretsmanager:ListSecretVersionIds"
+                Resource: "arn:aws:secretsmanager:ap-south-1:336028161198:secret:prod/python_backend-39hFk8"
+  ECSTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      ContainerDefinitions:
+        - Essential: true
+          Image: !Ref ApplicationImage
+          Memory: !Ref ApplicationImageMemory
+          Cpu: !Ref ApplicationImageCPU
+          Name: !Ref ApplicationContainerName
+          PortMappings:
+            - ContainerPort: !Ref ApplicationContainerPort
+              Protocol: "tcp"
+          MountPoints:
+            - SourceVolume: !Ref VolumeName
+              ContainerPath: "/.sourcewiz/static"
+          LogConfiguration:
+            LogDriver: "awslogs"
+            Options:
+              awslogs-group: !Sub "/ecs/${TaskDefinitionName}"
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: "ecs"
+
+      Family: !Ref TaskDefinitionName
+      TaskRoleArn: !Ref EcsTaskExecutionRole
+      ExecutionRoleArn: !Ref EcsTaskExecutionRole
+      NetworkMode: "awsvpc"
+      RequiresCompatibilities:
+        - "EC2"
+      Volumes:
+        - Name: !Ref VolumeName
+          efsVolumeConfiguration:
+            fileSystemId: !Ref EfsId
+            transitEncryption: ENABLED

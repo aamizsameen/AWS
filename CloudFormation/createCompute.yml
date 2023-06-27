@@ -1,0 +1,1474 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This Template will create ALB in web and ASG in app server subnet
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      Value: 127311923021
+    us-east-2:
+      Value: 033677994240
+    us-west-1:
+      Value: 027434742980
+    us-west-2:
+      Value: 797873946194
+    af-south-1:
+      Value: 098369216593
+    ca-central-1:
+      Value: 985666609251
+    eu-central-1:
+      Value: 054676820928
+    eu-west-1:
+      Value: 156460612806
+    eu-west-2:
+      Value: 652711504416
+    eu-south-1:
+      Value: 635631232127
+    eu-west-3:
+      Value: 009996457667
+    eu-north-1:
+      Value: 897822967062
+    ap-east-1:
+      Value: 754344448648
+    ap-northeast-1:
+      Value: 582318560864
+    ap-northeast-2:
+      Value: 600734575887
+    ap-northeast-3:
+      Value: 383597477331
+    ap-southeast-1:
+      Value: 114774131450
+    ap-southeast-2:
+      Value: 783225319266
+    ap-south-1:
+      Value: 718504428378
+    me-south-1:
+      Value: 076674570225
+    sa-east-1:
+      Value: 507241528517
+    us-gov-west-1:
+      Value: 048591011584
+    us-gov-east-1:
+      Value: 190560391635
+    cn-north-1:
+      Value: 638102146993
+    cn-northwest-1:
+      Value: 037604701340
+
+
+
+Metadata: 
+
+  AWS::CloudFormation::Interface:
+
+    ParameterGroups:
+
+    - Label:
+        default: Select the Environment for which you want to provision the Resources (It can be Dev/Staging/Prod)
+      Parameters:
+      - TagValue
+
+    - Label:
+        default: Network Configurations for Autoscaling Group, Application Load Balancer and Standalone Instance
+      Parameters: 
+      - VPCName
+      - PrivateSubnet
+      - PublicSubnet
+
+    - Label:
+        default: Common Compute Configurations that are required by Autoscaling Group, Application Load Balancer and Standalone Instance
+      Parameters:  
+      - LaunchInstanceAs
+      - LaunchInstanceIn
+      - InstanceType
+      - MachineType
+      - ImageId
+      - KeyName
+      - VolumeSizeFortheDevice
+      - DeleteVolumeOnTermination
+      - VolumeEncryption
+    - Label:
+        default: ASG Configurations
+      Parameters: 
+      - ASGName 
+      - TagNameForASG     
+      - ASGSubnets
+      - DeploymentType
+      - LaunchConfigName
+      - LaunchTemplateName
+      - SecurityGroupForASGInstances
+      - MaxSizeForASG
+      - MinSizeForASG
+      - DesiredInstanceCountForASG
+      - HealthCheckTypeInASG 
+      - HealthCheckGracePeriodInASG
+      - TerminationPoliciesForASG
+
+    - Label:
+        default: StandAlone Instance Configurations
+      Parameters:
+      - SubnetIdForStandaloneInstance 
+      - StandAloneInstanceAvalilabilityZone
+      - ElasticIPforStandAlone
+      - StandaloneInstanceSecurityGroup
+
+    - Label:
+        default: ALB Configurations
+      Parameters:     
+      - LoadBalancerName
+      - LoadBalancerScheme
+      - HavehttpsWebsite
+      - ListenerCertificateArn
+      - ALBLogs
+      - BucketCreation
+      - LogBucket
+      - BucketNameForLog
+      - LogBucketPrefix
+      - DeletionProtectionForLoadBalancer
+      - TargetGroupName
+      - LoadBalancerDeregistrationDelay
+      - ALBSecurityGroup
+
+
+
+
+Parameters:
+  TagValue:
+    Description: Select the Name of Environment.
+    Type: String
+    Default: Development
+    AllowedValues:
+    - Development
+    - Staging
+    - Production
+
+  VPCName:
+    Description: Select the VPC where the resources are to be provisioned.
+    Type: AWS::EC2::VPC::Id
+    Default: prod-vpc
+  
+  PrivateSubnet:
+    Description: Select the Private Subnets that are required by the ASG and ALB.
+    Type: List<AWS::EC2::Subnet::Id>
+
+  PublicSubnet:
+    Description: Select the Public Subnets that are required by the ASG and ALB.
+    Type: List<AWS::EC2::Subnet::Id>
+
+  LoadBalancerName:
+    Description: The Name of Load Balancer that is to be provisioned
+    Type: String
+    Default: PROD-API-ALB
+
+  LoadBalancerScheme:
+    Description: 'Indicates whether the load balancer in front of the EC2service is internet-facing or internal.'
+    Type: String
+    Default: 'internet-facing'
+    AllowedValues:
+    - 'internet-facing'
+    - 'internal'
+
+  ALBSecurityGroup:
+    Description: Select the Security Group for Internet Facing Application Load Balancer
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: 'ALB-SecurityGroup'
+
+  ALBLogs:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+    - 'true'
+    - 'false'
+
+  LogBucket:
+    Description: Enter the Name of Existing S3 Bucket where the Loadbalancer logs are to be stored.
+    Type: String
+    Default: Log-Test-Bucket
+
+  BucketNameForLog:
+    Type: String
+    Description: Enter a Bucket Name for New Bucket to store Loadbalancer logs.
+    Default: mys3bucetfortesting0123
+
+
+  HavehttpsWebsite:
+    Type: String
+    Description: Having https website and want to add certificate?
+    Default: 'no'
+    AllowedValues:
+    - 'yes'
+    - 'no'
+
+  BucketCreation:
+    Type: String
+    Description: Do you want to create a New Bucket or use the Existing Bucket to store loadbalancer logs?
+    Default: NoBucket 
+    AllowedValues:
+    - 'NewBucket'
+    - 'ExistingBucket'
+    - 'NoBucket'
+  
+  LogBucketPrefix:
+    Description: The Prefix with which Logs are to be stored in S3 bucket
+    Type: String
+    Default: aws/ALBlogs
+
+  DeletionProtectionForLoadBalancer:
+    Description: "Enable or Disable the Termination Protection for LoadBalancer"
+    Type: String
+    AllowedValues:
+      - false
+      - true
+    Default: false
+
+  TargetGroupName:
+    Type: String
+    Default: Prod-Target-Group
+    Description: Enter the Name of TargetGroup that is to be attached to the load balancer
+  
+  LoadBalancerDeregistrationDelay:
+    Description: 'The amount time (in seconds) to wait before changing the state of a deregistering target from draining to unused.'
+    Type: Number
+    Default: 60
+    ConstraintDescription: 'Must be in the range [0-3600]'
+    MinValue: 0
+    MaxValue: 3600
+
+  ListenerCertificateArn:
+    Description: The default SSL server certificate arn for the listener
+    Type: String
+    Default: arn:aws:acm:us-west-2:108970575545:certificate/0125c8b7-bd0d-4bef-b165-7d798e40260f
+
+  LaunchInstanceAs:
+    Description: Do you want to launch instance in Autoscaling group or as StandaloneInstance ?
+    Type: String
+    Default: Standalone
+    AllowedValues:
+    - 'AutoscalingGroup'
+    - 'Standalone'
+
+  DeploymentType:
+    Description: Create Autoscaling group using Launch Template or Launch Configuration
+    Type: String
+    Default: NoValue  
+    AllowedValues:
+    - 'LaunchTemplate'
+    - 'LaunchConfiguration'
+    - 'NoValue'
+   
+  LaunchTemplateName:
+    Description: Enter the name of Launch Template (Not required if Launch Configuration is choosen)
+    Type: String
+    Default: Prod-LaunchTemplate
+
+
+  KeyName:
+    Description: Select the Key pair that is used to login into the instance.
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: 'NewKey'
+
+  ImageId:
+    Description: Enter the Image ID required for the Instances. 
+    Type: AWS::EC2::Image::Id
+    Default:  ami-0cff7528ff583bf9a
+
+  SecurityGroupForASGInstances:
+    Type: List<AWS::EC2::SecurityGroup::Id> 
+    Description: Select the required security for AutoScaling Group
+
+  LaunchInstanceIn:
+   Description: Do you want instances launched by Autoscaling group in private or public subnet ?
+   Type: String
+   Default: NoValue
+   AllowedValues:
+   - 'Private'
+   - 'Public'
+   - 'NoValue' 
+  
+  InstanceType:
+    Description: Select the Instance type.
+    Type: String
+    AllowedValues:
+      - a1.2xlarge
+      - a1.4xlarge
+      - a1.large
+      - a1.medium
+      - a1.metal
+      - a1.xlarge
+      - c1.medium
+      - c1.xlarge
+      - c3.2xlarge
+      - c3.4xlarge
+      - c3.8xlarge
+      - c3.large
+      - c3.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c4.large
+      - c4.xlarge
+      - c5.12xlarge
+      - c5.18xlarge
+      - c5.24xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.large
+      - c5.metal
+      - c5.xlarge
+      - c5a.12xlarge
+      - c5a.16xlarge
+      - c5a.24xlarge
+      - c5a.2xlarge
+      - c5a.4xlarge
+      - c5a.8xlarge
+      - c5a.large
+      - c5a.xlarge
+      - c5d.12xlarge
+      - c5d.18xlarge
+      - c5d.24xlarge
+      - c5d.2xlarge
+      - c5d.4xlarge
+      - c5d.9xlarge
+      - c5d.large
+      - c5d.metal
+      - c5d.xlarge
+      - c5n.18xlarge
+      - c5n.2xlarge
+      - c5n.4xlarge
+      - c5n.9xlarge
+      - c5n.large
+      - c5n.xlarge
+      - c6g.12xlarge
+      - c6g.16xlarge
+      - c6g.2xlarge
+      - c6g.4xlarge
+      - c6g.8xlarge
+      - c6g.large
+      - c6g.medium
+      - c6g.metal
+      - c6g.xlarge
+      - cc1.4xlarge
+      - cc2.8xlarge
+      - cg1.4xlarge
+      - cr1.8xlarge
+      - d2.2xlarge
+      - d2.4xlarge
+      - d2.8xlarge
+      - d2.xlarge
+      - f1.16xlarge
+      - f1.2xlarge
+      - f1.4xlarge
+      - g2.2xlarge
+      - g2.8xlarge
+      - g3.16xlarge
+      - g3.4xlarge
+      - g3.8xlarge
+      - g3s.xlarge
+      - g4dn.12xlarge
+      - g4dn.16xlarge
+      - g4dn.2xlarge
+      - g4dn.4xlarge
+      - g4dn.8xlarge
+      - g4dn.metal
+      - g4dn.xlarge
+      - h1.16xlarge
+      - h1.2xlarge
+      - h1.4xlarge
+      - h1.8xlarge
+      - hi1.4xlarge
+      - hs1.8xlarge
+      - i2.2xlarge
+      - i2.4xlarge
+      - i2.8xlarge
+      - i2.xlarge
+      - i3.16xlarge
+      - i3.2xlarge
+      - i3.4xlarge
+      - i3.8xlarge
+      - i3.large
+      - i3.metal
+      - i3.xlarge
+      - i3en.12xlarge
+      - i3en.24xlarge
+      - i3en.2xlarge
+      - i3en.3xlarge
+      - i3en.6xlarge
+      - i3en.large
+      - i3en.metal
+      - i3en.xlarge
+      - inf1.24xlarge
+      - inf1.2xlarge
+      - inf1.6xlarge
+      - inf1.xlarge
+      - m1.large
+      - m1.medium
+      - m1.small
+      - m1.xlarge
+      - m2.2xlarge
+      - m2.4xlarge
+      - m2.xlarge
+      - m3.2xlarge
+      - m3.large
+      - m3.medium
+      - m3.xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.large
+      - m4.xlarge
+      - m5.12xlarge
+      - m5.16xlarge
+      - m5.24xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.8xlarge
+      - m5.large
+      - m5.metal
+      - m5.xlarge
+      - m5a.12xlarge
+      - m5a.16xlarge
+      - m5a.24xlarge
+      - m5a.2xlarge
+      - m5a.4xlarge
+      - m5a.8xlarge
+      - m5a.large
+      - m5a.xlarge
+      - m5ad.12xlarge
+      - m5ad.16xlarge
+      - m5ad.24xlarge
+      - m5ad.2xlarge
+      - m5ad.4xlarge
+      - m5ad.8xlarge
+      - m5ad.large
+      - m5ad.xlarge
+      - m5d.12xlarge
+      - m5d.16xlarge
+      - m5d.24xlarge
+      - m5d.2xlarge
+      - m5d.4xlarge
+      - m5d.8xlarge
+      - m5d.large
+      - m5d.metal
+      - m5d.xlarge
+      - m5dn.12xlarge
+      - m5dn.16xlarge
+      - m5dn.24xlarge
+      - m5dn.2xlarge
+      - m5dn.4xlarge
+      - m5dn.8xlarge
+      - m5dn.large
+      - m5dn.xlarge
+      - m5n.12xlarge
+      - m5n.16xlarge
+      - m5n.24xlarge
+      - m5n.2xlarge
+      - m5n.4xlarge
+      - m5n.8xlarge
+      - m5n.large
+      - m5n.xlarge
+      - m6g.12xlarge
+      - m6g.16xlarge
+      - m6g.2xlarge
+      - m6g.4xlarge
+      - m6g.8xlarge
+      - m6g.large
+      - m6g.medium
+      - m6g.metal
+      - m6g.xlarge
+      - p2.16xlarge
+      - p2.8xlarge
+      - p2.xlarge
+      - p3.16xlarge
+      - p3.2xlarge
+      - p3.8xlarge
+      - p3dn.24xlarge
+      - r3.2xlarge
+      - r3.4xlarge
+      - r3.8xlarge
+      - r3.large
+      - r3.xlarge
+      - r4.16xlarge
+      - r4.2xlarge
+      - r4.4xlarge
+      - r4.8xlarge
+      - r4.large
+      - r4.xlarge
+      - r5.12xlarge
+      - r5.16xlarge
+      - r5.24xlarge
+      - r5.2xlarge
+      - r5.4xlarge
+      - r5.8xlarge
+      - r5.large
+      - r5.metal
+      - r5.xlarge
+      - r5a.12xlarge
+      - r5a.16xlarge
+      - r5a.24xlarge
+      - r5a.2xlarge
+      - r5a.4xlarge
+      - r5a.8xlarge
+      - r5a.large
+      - r5a.xlarge
+      - r5ad.12xlarge
+      - r5ad.16xlarge
+      - r5ad.24xlarge
+      - r5ad.2xlarge
+      - r5ad.4xlarge
+      - r5ad.8xlarge
+      - r5ad.large
+      - r5ad.xlarge
+      - r5d.12xlarge
+      - r5d.16xlarge
+      - r5d.24xlarge
+      - r5d.2xlarge
+      - r5d.4xlarge
+      - r5d.8xlarge
+      - r5d.large
+      - r5d.metal
+      - r5d.xlarge
+      - r5dn.12xlarge
+      - r5dn.16xlarge
+      - r5dn.24xlarge
+      - r5dn.2xlarge
+      - r5dn.4xlarge
+      - r5dn.8xlarge
+      - r5dn.large
+      - r5dn.xlarge
+      - r5n.12xlarge
+      - r5n.16xlarge
+      - r5n.24xlarge
+      - r5n.2xlarge
+      - r5n.4xlarge
+      - r5n.8xlarge
+      - r5n.large
+      - r5n.xlarge
+      - r6g.12xlarge
+      - r6g.16xlarge
+      - r6g.2xlarge
+      - r6g.4xlarge
+      - r6g.8xlarge
+      - r6g.large
+      - r6g.medium
+      - r6g.metal
+      - r6g.xlarge
+      - t1.micro
+      - t2.2xlarge
+      - t2.large
+      - t2.medium
+      - t2.micro
+      - t2.nano
+      - t2.small
+      - t2.xlarge
+      - t3.2xlarge
+      - t3.large
+      - t3.medium
+      - t3.micro
+      - t3.nano
+      - t3.small
+      - t3.xlarge
+      - t3a.2xlarge
+      - t3a.large
+      - t3a.medium
+      - t3a.micro
+      - t3a.nano
+      - t3a.small
+      - t3a.xlarge
+      - u-12tb1.metal
+      - u-18tb1.metal
+      - u-24tb1.metal
+      - u-6tb1.metal
+      - u-9tb1.metal
+      - x1.16xlarge
+      - x1.32xlarge
+      - x1e.16xlarge
+      - x1e.2xlarge
+      - x1e.32xlarge
+      - x1e.4xlarge
+      - x1e.8xlarge
+      - x1e.xlarge
+      - z1d.12xlarge
+      - z1d.2xlarge
+      - z1d.3xlarge
+      - z1d.6xlarge
+      - z1d.large
+      - z1d.metal
+      - z1d.xlarge
+    Default: t2.micro
+
+  DeleteVolumeOnTermination:
+    Type: String
+    Description: Want to Delete the Volume after Termination of Instance?
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+  VolumeEncryption: 
+    Type: String
+    Default: 'false'
+    AllowedValues:
+     - 'true'
+     - 'false'
+    Description: Want to Encrypt device Volume ?
+
+  VolumeSizeFortheDevice:
+    Type: String
+    Description: Select the Volume Size that is required fo the Device.
+    Default: '20'
+  
+  LaunchConfigName:
+    Description: Enter the name of Launch Configuration.(Not required if Launch template is choosen)
+    Type: String
+    Default: Prod-LaunchConfig
+  
+  MachineType:
+    Type: String
+    Description: Select the type of Operating system 'Ubuntu' or 'Amazon Linux 2 AMI'.
+    Default: 'amazon-linux-2'
+    AllowedValues:
+    - 'ubuntu'
+    - 'amazon-linux-2'
+  
+  ASGName:
+    Description: The Name of Autoscaling Group.
+    Type: String
+    Default: PROD-ASG
+  
+  TagNameForASG:
+    Type: String
+    Default: PROD-INSTANCE
+    Description: Enter the Name Tag for the Autoscaling Group(This will be taken as the instance's name)
+  
+  MaxSizeForASG:
+    Type: Number
+    Default: 1
+    Description: Select the maximum number of Instances required to be in the AutoScalingGroup.
+
+  MinSizeForASG:
+    Type: Number
+    Default: 1
+    Description: Select the minimum number of Instances required to be in the AutoScalingGroup.
+
+  DesiredInstanceCountForASG:
+    Type: Number
+    Default: 1
+    Description: Select the desired instance count in the AutoScaling Group
+
+  HealthCheckTypeInASG:
+    Type: String
+    Description: The Health Check type for Instances in AutoScaling Group
+    AllowedValues:
+      - ELB
+      - EC2
+    Default: EC2
+
+  HealthCheckGracePeriodInASG:
+    Type: String
+    Default: '300'
+    Description: Select the HealthCheckGracePeriod in AutoScaling Group
+
+  TerminationPoliciesForASG:
+    Type: String
+    AllowedValues:
+      - Default
+      - OldestInstance
+      - OldestLaunchConfiguration
+      - NewestInstance
+      - ClosestToNextInstanceHour
+      - OldestLaunchTemplate
+      - AllocationStrategy
+    Default: OldestInstance
+    Description: Priority while Deleting the Instances in AutoScaling Group 
+
+  ElasticIPforStandAlone:
+    Type: String
+    Default: 'no'
+    Description: Select the Elastic IP for StandAlone Instance if required.
+    AllowedValues:
+      - 'yes'
+      - 'no'
+
+  StandaloneInstanceSecurityGroup:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Select the Security group for the Standalone Instance.
+
+  StandAloneInstanceAvalilabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Select an AvailabilityZone where the standalone instance is to be launched
+
+  SubnetIdForStandaloneInstance:
+    Type: AWS::EC2::Subnet::Id
+    Description: Select the Subnet ID for the Standalone Instance
+
+
+  
+Conditions:
+  HasLoadBalancerSchemeInternetFacing: !Equals [!Ref LoadBalancerScheme, 'internet-facing']
+  HasLoadBalancerSchemeInternal: !Equals [!Ref LoadBalancerScheme, 'internal']
+  ExistingBucketForLogs:  !Equals [!Ref BucketCreation, 'ExistingBucket']
+  NewBucketCreation1: !Equals [!Ref BucketCreation, 'NewBucket']
+  NewBucketCreation: !And
+   - !Condition NewBucketCreation1
+   - !Condition WantASGandALB
+  ExistingBucketForLogs1: !And
+   - !Condition ExistingBucketForLogs
+   - !Condition WantASGandALB 
+  WantASGandALB : !Equals [ !Ref LaunchInstanceAs, 'AutoscalingGroup' ]
+  WantStandAlone: !Equals [ !Ref LaunchInstanceAs, 'Standalone']
+  AsgUsingLaunchTemp: !Equals [ !Ref DeploymentType, 'LaunchTemplate']
+  AsgUsingLaunchConfig: !Equals [!Ref DeploymentType, 'LaunchConfiguration']
+  HavehttpWebsite: !Equals [!Ref HavehttpsWebsite, 'no']
+  HavehttpsWebsiteenable: !Equals [!Ref HavehttpsWebsite, 'yes']
+  SSLEnabled: 
+    !And [!Equals [ !Ref ALBLogs, 'yes' ], !Equals [ !Ref LaunchInstanceAs, 'AutoscalingGroup' ],
+    !Equals [!Ref HavehttpsWebsite, 'yes']]
+  NonhttpsLoadbalancer: 
+    !And [!Equals [ !Ref ALBLogs, 'yes' ], !Equals [ !Ref LaunchInstanceAs, 'AutoscalingGroup' ],
+    !Equals [!Ref HavehttpsWebsite, 'no']] 
+  AsgLaunchTemplate: !And
+   - !Condition WantASGandALB
+   - !Condition AsgUsingLaunchTemp
+  AsgLaunchConfig: !And
+   - !Condition WantASGandALB 
+   - !Condition AsgUsingLaunchConfig 
+  WantASGinPublicSubnet: !Equals [!Ref LaunchInstanceIn, 'Public' ]
+  WantASGinPrivateSubnet: !Equals [!Ref LaunchInstanceIn, 'Private' ]
+  WantElasticIPForEC2Instance: !Equals [!Ref ElasticIPforStandAlone, 'yes']  
+  WantAlbLogsAndHttpLoadBalancer:
+    !And [!Equals [ !Ref ALBLogs, 'no' ], !Equals [ !Ref LaunchInstanceAs, 'AutoscalingGroup' ],
+    !Equals [!Ref HavehttpsWebsite, 'yes']]
+  NoAlbLogs1AndNonHttpLoadBalancer:
+    !And [!Equals [ !Ref ALBLogs, 'no' ], !Equals [ !Ref LaunchInstanceAs, 'AutoscalingGroup' ],
+    !Equals [!Ref HavehttpsWebsite, 'no']] 
+  
+
+
+
+
+Resources:
+
+  ApplicationLoadBalancerWithoutHttpsNoLogs:
+    Condition: NoAlbLogs1AndNonHttpLoadBalancer
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+      - Key: deletion_protection.enabled
+        Value: !Ref DeletionProtectionForLoadBalancer
+      Scheme: !Ref LoadBalancerScheme
+      SecurityGroups:
+      - Ref: ALBSecurityGroup
+      Subnets: !If [HasLoadBalancerSchemeInternal,!Ref PrivateSubnet , !Ref PublicSubnet ]
+      Name:
+        Ref: LoadBalancerName
+      Tags:
+      - Key: Name
+        Value: !Ref LoadBalancerName
+      - Key: Environment
+        Value:
+          Ref: TagValue
+      Type: application
+
+  ApplicationLoadBalancerNoLogs:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: WantAlbLogsAndHttpLoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+      - Key: deletion_protection.enabled
+        Value: !Ref DeletionProtectionForLoadBalancer
+      Scheme: !Ref LoadBalancerScheme
+      SecurityGroups:
+      - Ref: ALBSecurityGroup
+      Subnets: !If [HasLoadBalancerSchemeInternal,!Ref PrivateSubnet , !Ref PublicSubnet ]
+      Name:
+        Ref: LoadBalancerName
+      Tags:
+      - Key: Name
+        Value: !Ref LoadBalancerName
+      - Key: Environment
+        Value:
+          Ref: TagValue
+      Type: application
+
+
+#WANT ALB logs
+
+
+
+  ApplicationLoadBalancerWithoutHttps:
+    Condition: NonhttpsLoadbalancer
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+      - Key: access_logs.s3.enabled
+        Value: true
+      - Key: access_logs.s3.bucket
+        Value:
+          !If [ExistingBucketForLogs, !Ref LogBucket, !Ref BucketNameForLog]
+      - Key: deletion_protection.enabled
+        Value: !Ref DeletionProtectionForLoadBalancer
+      - Key: access_logs.s3.prefix
+        Value: !Ref LogBucketPrefix
+      Scheme: !Ref LoadBalancerScheme
+      SecurityGroups:
+      - Ref: ALBSecurityGroup
+      Subnets: !If [HasLoadBalancerSchemeInternal,!Ref PrivateSubnet , !Ref PublicSubnet ]
+      Name:
+        Ref: LoadBalancerName
+      Tags:
+      - Key: Name
+        Value: !Ref LoadBalancerName
+      - Key: Environment
+        Value:
+          Ref: TagValue
+      Type: application
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: SSLEnabled
+    Properties:
+      LoadBalancerAttributes:
+      - Key: access_logs.s3.enabled
+        Value: true
+      - Key: access_logs.s3.bucket
+        Value:
+          !If [ExistingBucketForLogs, !Ref LogBucket, !Ref BucketNameForLog]
+      - Key: deletion_protection.enabled
+        Value: !Ref DeletionProtectionForLoadBalancer
+      - Key: access_logs.s3.prefix
+        Value: !Ref LogBucketPrefix
+      Scheme: !Ref LoadBalancerScheme
+      SecurityGroups:
+      - Ref: ALBSecurityGroup
+      Subnets: !If [HasLoadBalancerSchemeInternal,!Ref PrivateSubnet , !Ref PublicSubnet ]
+      Name:
+        Ref: LoadBalancerName
+      Tags:
+      - Key: Name
+        Value: !Ref LoadBalancerName
+      - Key: Environment
+        Value:
+          Ref: TagValue
+      Type: application
+
+
+
+
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: SSLEnabled
+    Properties:
+      DefaultActions:
+      - Type: "redirect"
+        RedirectConfig:
+           Protocol: "HTTPS"
+           Port: "443"
+           Host: "#{host}"
+           Path: "/#{path}"
+           Query: "#{query}"
+           StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: "HTTP" 
+
+
+  Listener1:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: SSLEnabled
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroup
+      LoadBalancerArn:
+        Ref: ApplicationLoadBalancer
+      Port: '443'
+      Protocol: HTTPS
+      Certificates:
+      - CertificateArn:
+          Ref: ListenerCertificateArn
+      SslPolicy: ELBSecurityPolicy-2016-08
+
+  ListenerNoLogs:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: WantAlbLogsAndHttpLoadBalancer
+    Properties:
+      DefaultActions:
+      - Type: "redirect"
+        RedirectConfig:
+           Protocol: "HTTPS"
+           Port: "443"
+           Host: "#{host}"
+           Path: "/#{path}"
+           Query: "#{query}"
+           StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref ApplicationLoadBalancerNoLogs
+      Port: 80
+      Protocol: "HTTP" 
+
+
+  Listener1NoLogs:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: WantAlbLogsAndHttpLoadBalancer
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroup
+      LoadBalancerArn:
+        Ref: ApplicationLoadBalancerNoLogs
+      Port: '443'
+      Protocol: HTTPS
+      Certificates:
+      - CertificateArn:
+          Ref: ListenerCertificateArn
+      SslPolicy: ELBSecurityPolicy-2016-08
+
+
+
+
+
+  NonHttpsListenerNoLogs:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: NoAlbLogs1AndNonHttpLoadBalancer
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroup
+      LoadBalancerArn:
+        Ref: ApplicationLoadBalancerWithoutHttpsNoLogs
+      Port: '80'
+      Protocol: "HTTP"
+
+
+  NonHttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: NonhttpsLoadbalancer
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroup
+      LoadBalancerArn:
+        Ref: ApplicationLoadBalancerWithoutHttps
+      Port: '80'
+      Protocol: "HTTP"
+
+
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: WantASGandALB
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      HealthCheckPath: "/"
+      Name:
+        Ref: TargetGroupName
+      Port: 80
+      Protocol: HTTP
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: !Ref LoadBalancerDeregistrationDelay
+      TargetType: instance
+      UnhealthyThresholdCount: 10
+      VpcId: !Ref VPCName
+
+  StandAloneEC2Instance:
+    Condition: WantStandAlone
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: !Ref StandAloneInstanceAvalilabilityZone
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdm"
+          Ebs:
+            DeleteOnTermination: !Ref DeleteVolumeOnTermination
+            VolumeSize: !Ref VolumeSizeFortheDevice
+        - DeviceName: "/dev/sdk"
+          NoDevice: {}
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref SubnetIdForStandaloneInstance
+      SecurityGroupIds:
+        !Ref 'StandaloneInstanceSecurityGroup'
+      IamInstanceProfile:
+        !Ref 'Ec2InstanceProfile'
+      Tags:
+        - Key: Name
+          Value: StandAlone
+        - Key: Environment
+          Value: !Ref TagValue
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          export MACHINE_TYPE="${MachineType}"
+          if [ $MACHINE_TYPE == "ubuntu" ]
+          then
+            sudo apt update
+            sudo apt install wget -y
+            sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb
+            sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
+            sudo wget https://cwagentconfigfiles.s3.amazonaws.com/cwagent.json
+            sudo cp cwagent.json /opt/aws/amazon-cloudwatch-agent/bin/
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/cwagent.json -s 
+            sudo apt update
+            sudo apt install ruby-full -y
+            sudo wget https://aws-codedeploy-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/latest/install
+            sudo chmod +x ./install
+            sudo ./install auto > /tmp/logfile
+            sudo service codedeploy-agent start
+          else
+            sudo yum update
+            sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+            sudo yum install ruby -y
+            sudo yum install wget -y
+            sudo wget https://aws-codedeploy-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/latest/install
+            sudo chmod +x ./install
+            sudo ./install auto
+            sudo service codedeploy-agent start
+            sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+            sudo rpm -U ./amazon-cloudwatch-agent.rpm
+            sudo wget https://cwagentconfigfiles.s3.amazonaws.com/cwagent.json
+            sudo cp cwagent.json /opt/aws/amazon-cloudwatch-agent/bin/
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/cwagent.json -s  
+          fi
+
+  IPAddress:
+    Type: AWS::EC2::EIP
+    Condition: WantElasticIPForEC2Instance
+  IPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Condition: WantElasticIPForEC2Instance
+    Properties:
+      InstanceId: !Ref 'StandAloneEC2Instance'
+      EIP: !Ref 'IPAddress'
+
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Condition: NewBucketCreation
+    Properties:
+      BucketName: !Sub ${BucketNameForLog}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+    DeletionPolicy: Delete
+
+  S3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Condition: NewBucketCreation
+    Properties:
+      Bucket:
+        Ref: "BucketNameForLog"
+      PolicyDocument:
+        Statement:
+        -
+          Sid: "GiveAmazonRootAccessToTheBucket"
+          Action:
+            - "s3:PutObject"
+          Effect: "Allow"
+          Resource:
+            Fn::Join:
+              - ""
+              -
+                - "arn:aws:s3:::"
+                -
+                  Ref: "BucketNameForLog"
+                - "/*"
+          Principal:
+            AWS:
+              Fn::Join:
+                - ""
+                -
+                  - "arn:aws:iam::"
+                  -
+                    !FindInMap [RegionMap, !Ref "AWS::Region", Value]
+                  - ":root"
+
+        -
+          Sid: "BucketOwnerFullControl"
+          Action:
+            - "s3:PutObject"
+          Effect: "Allow"
+          Resource:
+            Fn::Join:
+              - ""
+              -
+                - "arn:aws:s3:::"
+                -
+                  Ref: "BucketNameForLog"
+                - "/*"
+          Principal:
+            Service:
+            - delivery.logs.amazonaws.com
+          Condition:
+            StringEquals:
+              s3:x-amz-acl: bucket-owner-full-control
+
+        -
+          Sid: "LogGroupGetBucketACL"
+          Action:
+            - "s3:GetBucketAcl"
+          Effect: "Allow"
+          Resource:
+            Fn::Join:
+              - ""
+              -
+                - "arn:aws:s3:::"
+                -
+                  Ref: "BucketNameForLog"
+          Principal:
+            Service:
+            - delivery.logs.amazonaws.com
+
+  S3BucketPolicyForExistingBucket:
+    Type: 'AWS::S3::BucketPolicy'
+    Condition: ExistingBucketForLogs
+    Properties:
+      Bucket:
+        Ref: "LogBucket"
+      PolicyDocument:
+        Statement:
+        -
+          Sid: "GiveAmazonRootAccessToTheBucket"
+          Action:
+            - "s3:PutObject"
+          Effect: "Allow"
+          Resource:
+            Fn::Join:
+              - ""
+              -
+                - "arn:aws:s3:::"
+                -
+                  Ref: "LogBucket"
+                - "/*"
+          Principal:
+            AWS:
+              Fn::Join:
+                - ""
+                -
+                  - "arn:aws:iam::"
+                  -
+                    !FindInMap [RegionMap, !Ref "AWS::Region", Value]
+                  - ":root"
+        -
+          Sid: "BucketOwnerFullControl"
+          Action:
+            - "s3:PutObject"
+          Effect: "Allow"
+          Resource:
+            Fn::Join:
+              - ""
+              -
+                - "arn:aws:s3:::"
+                -
+                  Ref: "LogBucket"
+                - "/*"
+          Principal:
+            Service:
+            - delivery.logs.amazonaws.com
+          Condition:
+            StringEquals:
+              s3:x-amz-acl: bucket-owner-full-control
+
+        -
+          Sid: "LogGroupGetBucketACL"
+          Action:
+            - "s3:GetBucketAcl"
+          Effect: "Allow"
+          Resource:
+            Fn::Join:
+              - ""
+              -
+                - "arn:aws:s3:::"
+                -
+                  Ref: "LogBucket"
+          Principal:
+            Service:
+            - delivery.logs.amazonaws.com
+
+  AutoScalingLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Condition: AsgLaunchConfig
+    Properties:
+      KeyName:
+        Ref: KeyName
+      ImageId:
+        Ref: ImageId
+      SecurityGroups:
+        Ref: 'SecurityGroupForASGInstances'
+      InstanceType:
+        Ref: InstanceType
+      IamInstanceProfile:
+        !Ref 'Ec2InstanceProfile'
+
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdm"
+          Ebs:
+            DeleteOnTermination: !Ref DeleteVolumeOnTermination
+            Encrypted: !Ref VolumeEncryption
+            VolumeSize: !Ref VolumeSizeFortheDevice
+      LaunchConfigurationName: !Ref LaunchConfigName
+      UserData:
+        Fn::Base64: !Sub |
+                #!/bin/bash
+                export MACHINE_TYPE="${MachineType}"  
+                if [ $MACHINE_TYPE == "ubuntu" ]
+                then
+                  sudo apt install wget -y
+                  sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb
+                  sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
+                  sudo wget https://cwagentconfigfiles.s3.amazonaws.com/asgswagent.json
+                  sudo cp asgswagent.json /opt/aws/amazon-cloudwatch-agent/bin/
+                  sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/asgswagent.json -s 
+                  sudo apt update
+                  sudo apt install ruby-full -y
+                  sudo wget https://aws-codedeploy-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/latest/install
+                  sudo chmod +x ./install
+                  sudo ./install auto > /tmp/logfile
+                  sudo service codedeploy-agent start
+                else
+                  sudo yum update
+                  sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+                  sudo yum install ruby -y
+                  sudo yum install wget -y
+                  sudo wget https://aws-codedeploy-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/latest/install
+                  sudo chmod +x ./install
+                  sudo ./install auto
+                  sudo service codedeploy-agent start
+                  sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+                  sudo rpm -U ./amazon-cloudwatch-agent.rpm
+                  sudo wget https://cwagentconfigfiles.s3.amazonaws.com/asgswagent.json
+                  sudo cp asgswagent.json /opt/aws/amazon-cloudwatch-agent/bin/
+                  sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/asgswagent.json -s  
+                fi
+
+  AutoScalingLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Condition: AsgLaunchTemplate
+    Properties:
+      LaunchTemplateName: !Ref LaunchTemplateName
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: "/dev/sdm"
+            Ebs:
+              DeleteOnTermination: !Ref DeleteVolumeOnTermination
+              VolumeSize: !Ref VolumeSizeFortheDevice
+              Encrypted: !Ref VolumeEncryption
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        SecurityGroupIds: 
+          !Ref 'SecurityGroupForASGInstances' 
+        IamInstanceProfile:
+          Arn: !GetAtt Ec2InstanceProfile.Arn
+        UserData:
+         Fn::Base64: !Sub |
+                #!/bin/bash
+                export MACHINE_TYPE="${MachineType}" 
+                if [ $MACHINE_TYPE == "ubuntu" ]
+                then
+                  sudo apt install wget -y
+                  sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb
+                  sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
+                  sudo wget https://cwagentconfigfiles.s3.amazonaws.com/asgswagent.json
+                  sudo cp asgswagent.json /opt/aws/amazon-cloudwatch-agent/bin/
+                  sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/asgswagent.json -s 
+                  sudo apt update
+                  sudo apt install ruby-full -y
+                  sudo wget https://aws-codedeploy-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/latest/install
+                  sudo chmod +x ./install
+                  sudo ./install auto > /tmp/logfile
+                  sudo service codedeploy-agent start
+                else
+                  sudo yum update
+                  sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+                  sudo yum install ruby -y
+                  sudo yum install wget -y
+                  sudo wget https://aws-codedeploy-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/latest/install
+                  sudo chmod +x ./install
+                  sudo ./install auto
+                  sudo service codedeploy-agent start
+                  sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+                  sudo rpm -U ./amazon-cloudwatch-agent.rpm
+                  sudo wget https://cwagentconfigfiles.s3.amazonaws.com/asgswagent.json
+                  sudo cp asgswagent.json /opt/aws/amazon-cloudwatch-agent/bin/
+                  sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/asgswagent.json -s  
+                fi
+
+  AutoScalingGroupLaunchConfig:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Condition: AsgLaunchConfig
+    Properties:
+      AutoScalingGroupName:
+        Ref: ASGName
+      Tags:
+      - Key: Name
+        Value: !Ref TagNameForASG
+        PropagateAtLaunch: true
+      - Key: Environment
+        Value:
+          Ref: TagValue
+        PropagateAtLaunch: true
+      LaunchConfigurationName:
+        Ref: AutoScalingLaunchConfig
+      MaxSize: !Ref MaxSizeForASG
+      MinSize: !Ref MinSizeForASG
+      DesiredCapacity: !Ref DesiredInstanceCountForASG
+      HealthCheckType: !Ref HealthCheckTypeInASG
+      HealthCheckGracePeriod: !Ref HealthCheckGracePeriodInASG
+      TerminationPolicies: [!Ref 'TerminationPoliciesForASG']
+      TargetGroupARNs:
+      - Ref: TargetGroup
+      VPCZoneIdentifier: !If [ WantASGinPublicSubnet, !Ref PublicSubnet ,!Ref PrivateSubnet ] 
+
+  AutoScalingGroupUsingLaunchTemplate:
+    Condition: AsgLaunchTemplate
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName:
+        Ref: ASGName
+      Tags:
+      - Key: Name
+        Value: !Ref TagNameForASG
+        PropagateAtLaunch: true
+      - Key: Environment
+        Value:
+          Ref: TagValue
+        PropagateAtLaunch: true
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AutoScalingLaunchTemplate
+        Version: !GetAtt AutoScalingLaunchTemplate.LatestVersionNumber        
+      MaxSize: !Ref MaxSizeForASG
+      MinSize: !Ref MinSizeForASG
+      DesiredCapacity: !Ref DesiredInstanceCountForASG
+      HealthCheckType: !Ref HealthCheckTypeInASG
+      HealthCheckGracePeriod: !Ref HealthCheckGracePeriodInASG
+      TerminationPolicies: [!Ref 'TerminationPoliciesForASG']
+      TargetGroupARNs:
+      - Ref: TargetGroup
+      VPCZoneIdentifier: !If [ WantASGinPublicSubnet, !Ref PublicSubnet ,!Ref PrivateSubnet ]
+      
+      
+
+
+  Ec2InstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Path: /
+      RoleName: "ec2-role"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+
+      ManagedPolicyArns:
+         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+  Ec2InstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+       Path: "/"
+       Roles:
+         - Ref: "Ec2InstanceRole"
+
+
+Outputs:
+
+  ApplicationLoadBalancerWithoutHttpsNoLogs:
+    Condition: NoAlbLogs1AndNonHttpLoadBalancer
+    Value: !Ref ApplicationLoadBalancerWithoutHttpsNoLogs
+
+  ApplicationLoadBalancerNoLogs:
+    Condition: WantAlbLogsAndHttpLoadBalancer
+    Value: !Ref ApplicationLoadBalancerNoLogs
+
+  ApplicationLoadBalancerWithoutHttps:
+    Condition: NonhttpsLoadbalancer
+    Value: !Ref ApplicationLoadBalancerWithoutHttps
+
+  ApplicationLoadBalancer:
+    Condition: SSLEnabled
+    Value: !Ref ApplicationLoadBalancer
+
+  Listener:
+    Condition: SSLEnabled
+    Value: !Ref Listener
+
+  Listener1:
+    Condition: SSLEnabled
+    Value: !Ref Listener1
+
+  ListenerNoLogs:
+    Condition: WantAlbLogsAndHttpLoadBalancer
+    Value: !Ref ListenerNoLogs
+
+  Listener1NoLogs:
+    Condition: WantAlbLogsAndHttpLoadBalancer
+    Value: !Ref Listener1NoLogs
+
+  NonHttpsListenerNoLogs:
+    Condition: NoAlbLogs1AndNonHttpLoadBalancer
+    Value: !Ref NonHttpsListenerNoLogs
+
+  NonHttpsListener:
+    Condition: NonhttpsLoadbalancer
+    Value: !Ref NonHttpsListener
+
+  TargetGroup:
+    Condition: WantASGandALB
+    Value: !Ref TargetGroup
+
+  StandAloneEC2Instance:
+    Condition: WantStandAlone
+    Value: !Ref StandAloneEC2Instance
+
+  IPAddress:
+    Condition: WantElasticIPForEC2Instance
+    Value: !Ref IPAddress
+
+  IPAssoc:
+    Condition: WantElasticIPForEC2Instance
+    Value: !Ref IPAssoc
+
+  S3Bucket:
+    Condition: NewBucketCreation
+    Value: !Ref S3Bucket
+
+  S3BucketPolicy:
+    Condition: NewBucketCreation
+    Value: !Ref S3BucketPolicy
+
+  S3BucketPolicyForExistingBucket:
+    Condition: ExistingBucketForLogs
+    Value: !Ref S3BucketPolicyForExistingBucket
+
+  AutoScalingLaunchConfig:
+    Condition: AsgLaunchConfig
+    Value: !Ref AutoScalingLaunchConfig
+
+  AutoScalingLaunchTemplate:
+    Condition: AsgLaunchTemplate
+    Value: !Ref AutoScalingLaunchTemplate
+
+  AutoScalingGroupLaunchConfig:
+    Condition: AsgLaunchConfig
+    Value: !Ref AutoScalingGroupLaunchConfig
+
+  AutoScalingGroupUsingLaunchTemplate:
+    Condition: AsgLaunchTemplate
+    Value: !Ref AutoScalingGroupUsingLaunchTemplate
+
+  Ec2InstanceRole:
+    Value: !Ref Ec2InstanceRole
+
+  Ec2InstanceProfile:
+    Value: !Ref Ec2InstanceProfile
+
+

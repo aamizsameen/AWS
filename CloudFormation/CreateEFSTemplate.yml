@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  EnvironmentName:
+    Description: Environment Name
+    Type: String
+  VPC:
+    Description: Choose which VPC this ECS cluster should be deployed to
+    Type: 'AWS::EC2::VPC::Id'
+  TargetSubnet1:
+    Description: Mount target Subnet 1
+    Type: 'AWS::EC2::Subnet::Id'
+  TargetSubnet2:
+    Description: Mount target Subnet 2
+    Type: 'AWS::EC2::Subnet::Id'
+  TargetSubnet3:
+    Description: Mount target Subnet 3
+    Type: 'AWS::EC2::Subnet::Id'
+  EcsSG:
+    Description: >-
+      Provide the source security group from which LB needs to receive traffic,
+      preferably API SGs
+    Type: 'AWS::EC2::SecurityGroup::Id'
+Resources:
+  FileSystemResource:
+    Type: 'AWS::EFS::FileSystem'
+    Properties:
+      BackupPolicy:
+        Status: ENABLED
+      PerformanceMode: generalPurpose
+      Encrypted: true
+      LifecyclePolicies:
+        - TransitionToIA: AFTER_30_DAYS
+        - TransitionToPrimaryStorageClass: AFTER_1_ACCESS
+      FileSystemTags:
+        - Key: Name
+          Value: !Sub 'IN-Sourcewiz-Efs-New-${EnvironmentName}'
+  EFSSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub 'IN-Sourcewiz-EfsSG-New-${EnvironmentName}'
+      Tags:
+        - Key: Name
+          Value: !Sub 'IN-Sourcewiz-EfsSG-New-${EnvironmentName}'
+      VpcId: !Ref VPC
+      GroupDescription: EFS Security Group to Allow
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref EcsSG
+  MountTargetResource1:
+    Type: 'AWS::EFS::MountTarget'
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: !Ref TargetSubnet1
+      SecurityGroups:
+        - !GetAtt EFSSecurityGroup.GroupId
+  MountTargetResource2:
+    Type: 'AWS::EFS::MountTarget'
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: !Ref TargetSubnet2
+      SecurityGroups:
+        - !GetAtt EFSSecurityGroup.GroupId
+  MountTargetResource3:
+    Type: 'AWS::EFS::MountTarget'
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: !Ref TargetSubnet3
+      SecurityGroups:
+        - !GetAtt EFSSecurityGroup.GroupId

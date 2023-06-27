@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'ElastiCache redis'
+
+Parameters:
+
+  Env:
+    Description: Environment Suffix
+    Type: String
+    Default: dev
+
+  EngineVersion:
+    Description: 'Redis version'
+    Type: String
+    Default: '6.x'   
+
+  CacheNodeType:
+    Description: 'The compute and memory capacity of the nodes in the node group (shard).'
+    Type: 'String'
+    Default: 'cache.t4g.medium'   
+
+  MultiAZSupport:
+    Description: >-
+      Indicates whether Multi-AZ is enabled. When Multi-AZ is enabled, a
+      read-only replica is automatically promoted to a read-write primary
+      cluster if the existing primary cluster fails. If you specify true, you must specify a value greater than 1 for the NumCacheClusters property.
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+  SnapshotRetentionLimit:
+    Description: 'The number of days for which ElastiCache retains automatic snapshots before deleting them (set to 0 to disable backups).'
+    Type: Number 
+
+  DataSubnets:
+    Description: Enter the Db Subnets Id
+    Type: List<AWS::EC2::Subnet::Id>
+    
+  ClusterSg:
+    Description: The ECS Cluster Security Group 
+    Type: 'AWS::EC2::SecurityGroup::Id'    
+
+  VpcId:
+    Description: Enter the VpcId 
+    Type: AWS::EC2::VPC::Id   
+
+Resources:
+
+  ElasticSubnetGroup:  
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub 'Redis-Subnet-Group-${Env}'
+      Description: "Elastic Cache Subnet Group"
+      SubnetIds: !Ref DataSubnets
+      Tags:
+      - Key: Name
+        Value: !Sub 'Sourcewiz-Redis-${Env}'
+      - Key: Organization
+        Value: Sourcewiz      
+
+  ElasticSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'Sourcewiz-Redis-Sg-${Env}'
+      GroupDescription: Redis Cluster access for ECS
+      VpcId:
+        Ref: VpcId
+      Tags:
+      - Key: Name
+        Value: !Sub 'Sourcewiz-Redis-${Env}'
+      - Key: Organization
+        Value: Sourcewiz     
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '6379'
+        ToPort: '6379'
+        SourceSecurityGroupId: !Ref ClusterSg  
+
+  ReplicationGroup:
+    Type: 'AWS::ElastiCache::ReplicationGroup'
+    Properties:
+      AtRestEncryptionEnabled: 'true'
+      AutomaticFailoverEnabled: !Ref MultiAZSupport
+      AutoMinorVersionUpgrade: 'false'
+      CacheNodeType: !Ref CacheNodeType
+      CacheSubnetGroupName: !Ref ElasticSubnetGroup
+      Engine: redis
+      EngineVersion: 
+        Ref: EngineVersion      
+      NumCacheClusters: 2
+      Port: 6379
+      ReplicationGroupDescription: 'Elastic Cache Redis Cluster'
+      SecurityGroupIds:
+        - !GetAtt ElasticSecurityGroup.GroupId
+      SnapshotRetentionLimit: !Ref SnapshotRetentionLimit        
+
+Outputs:
+
+  RGEndpoint:
+    Description: The primary endpoint location
+    Value: !Join 
+      - ''
+      - - 'redis://'
+        - !GetAtt 
+          - ReplicationGroup
+          - PrimaryEndPoint.Address
+        - ':'
+        - !GetAtt 
+          - ReplicationGroup
+          - PrimaryEndPoint.Port    

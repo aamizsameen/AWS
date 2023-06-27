@@ -1,0 +1,919 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  This template deploys an ECS cluster to the provided VPC and subnets
+  using an Auto Scaling Group. 
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: All Parameters Specific To Environment & Naming Conventions.
+        Parameters:
+          - EnvironmentName
+          - EnvironmentNameS3Bucket
+          - CountryCode
+          - ApplicationName
+
+      - Label:
+          default: All Parameters Specific To Networking.
+        Parameters:
+          - VPC
+          - EC2Subnets
+          - LoadBalancerSubnets
+
+      - Label:
+          default: All Parameters Specific To Security Groups.
+        Parameters:
+          - LBInboundSG
+          - LBFromPort
+          - LBToPort
+          - CIDRAllowed
+
+      - Label:
+          default: All Parameters Related to ECS Cluster.
+        Parameters:
+          - ClusterName
+          - ClusterSize
+          - ECSAMI
+          - ELBDeletionProtection
+
+      - Label:
+          default: All Parameters Related to Elastic Container Service - Autoscaling.
+        Parameters:
+          - InstanceType
+          - MinSize
+          - MaxSize
+          - MinInstancesInService
+          - MaxBatchSize
+
+      - Label:
+          default: All Parameters Related to Logging and Monitoring.
+        Parameters:
+          - CWLogRetentionDays
+          - CloudWatchAgentDockerImage
+          - LBLogsRetentionDays
+
+    ParameterLabels:
+      EnvironmentName:
+        default: Please give a meaningful mame to your Environment. (Like uat, dev, preprod, prod, staging, perf etc.)
+      EnvironmentNameS3Bucket:
+        default: Please give an environment name to your s3 Bucket. It must be in lower case.
+      CountryCode:
+        default: Please Select the Country For for this Infra is being deployed
+      ApplicationName:
+        default: Please Give a Name to your application. 
+      VPC:
+        default: Please Select the VPC ID from the list of existing VPCs in this region. It is a virtual private Network where all your resources will reside.
+      EC2Subnets:
+        default: The Subnets where your ECS Cluster EC2 Instance will reside. (Prefer to have it in private subnet)
+      LoadBalancerSubnets:
+        default: The Subnet where your loadbalancer will reside.
+      LBInboundSG:
+        default: "[Optional] The Inbound Security Group for LoadBalancer. Please use some dummy value if you are not allowing the traffic to LB using from some other AWS resources"
+      LBFromPort:
+        default: Please Specify the range of port on which you want your loadbalancer to receive the traffic (From Value)
+      LBToPort:
+        default: Please Specify the range of port on which you want your loadbalancer to receive the traffic (To Value)
+      CIDRAllowed:
+        default: Please provide the CIDR Range from which your LoadBalancer will receive the traffic (eg.0.0.0.0/0) means open to all
+      ClusterName:
+        default: Please give a name to your ECS Cluster. It is a logical grouping of tasks or services. (You may have it like environment specific cluster or service specific cluster as a best practice)
+      ECSAMI:
+        default: Please Specify the Image ID in which your ECS Agent and Service Container will be running. Please check the AMI ID from AWS Documentation. (Not all AMIs are supported by default)
+      CWLogRetentionDays:
+        default: Please Specify the duration for which you want to keep the Container Insight Logs.
+      CloudWatchAgentDockerImage:
+        default: "Please give the Docker Image Name for Cloudwatch Container. You may take the image from here - https://hub.docker.com/r/amazon/cloudwatch-agent/tags"
+      LBLogsRetentionDays:
+        default: Please Specify the duration for which you would like to Store the Application LoadBalancer Balancer Access Logs in S3 Bucket
+
+Parameters:
+  EnvironmentName:
+    #Keeping environments in small case as S3 buckets doesn't take capital letter
+    Description: An environment name that will be prefixed to resource names. All the resources will be having his prefix.
+    Type: String
+    Default: dev
+
+  EnvironmentNameS3Bucket:
+    Description: An environment name that will be prefixed to s3 Bucket name.
+    Type: String
+    AllowedValues:
+      - dev
+      - uat
+      - pre-prod
+      - prod
+      - perf
+
+  CountryCode:
+    Description: Please select the Country Code for which this template is to be deployed.
+    Type: String
+    Default: IN
+
+  ApplicationName:
+    Description: The Name of your Application for which the template is going to be deployed.
+    Type: String
+    Default: Sourcewiz
+
+
+  ClusterName:
+    Description: Provide a name to your cluster. Please Give a unique name to the Cluster and ensure that there is no existing cluster available in that AWS Region.
+    Type: String
+
+  InstanceType:
+    Description: Which instance type should we use to build the ECS cluster?
+    Type: String
+    Default: t3a.medium
+    AllowedValues:
+      - a1.2xlarge
+      - a1.4xlarge
+
+
+  CapacityProviderTerminationProtection:
+    Description: Enable or disable termination protection of Capacity Provider
+    Type: String
+    Default: ENABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+
+  ClusterSize:
+    Description: How many ECS hosts do you want to initially deploy?
+    Type: Number
+    Default: 2
+
+  VPC:
+    Description: Choose which VPC this ECS cluster should be deployed to
+    Type: AWS::EC2::VPC::Id
+
+  EC2Subnets:
+    Description: Choose which subnets this ECS cluster should be deployed to
+    Type: List<AWS::EC2::Subnet::Id>
+
+  LoadBalancerSubnets:
+    Description: Choose the subnets that needs to be associated with the LoadBalancer. Select Public subnet if internet-facing, else private
+    Type: List<AWS::EC2::Subnet::Id>
+
+  LBInboundSG:
+    Description: Provide the source security group from which LB needs to receive traffic, preferably API SGs
+    Type: AWS::EC2::SecurityGroup::Id
+
+  LBFromPort:
+    Description: Provide the from port number to be allowed by Load Balancer Security Group
+    Type: Number
+    Default: 32700
+
+  LBToPort:
+    Description: Provide the to port number to be allowed by Load Balancer Security Group
+    Type: Number
+    Default: 32700
+
+  CIDRAllowed:
+    Description: Provide the IP CIDR Range that is allowed to hit the LoadBalancer URL.
+    Type: String
+    Default: 0.0.0.0/0
+
+  ELBDeletionProtection:
+    Description: Do you need to enable deletion_protection for this Load Balancer. This Prevents your loadbalancer from accidently being deleted.
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+
+  LBLogsRetentionDays:
+    Description: Provide number of days to retain LBLogs in S3.
+    Type: Number
+    Default: 30
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+
+  ECSAMI:
+    Description: ECS-Optimized AMI ID
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2/arm64/recommended/image_id
+
+  MinInstancesInService:
+    Description: Minimum number of instances that must be in service within the Auto Scaling group
+    Type: Number
+
+  MaxBatchSize:
+    Description: Maximum number of instances that Autoscaling updates
+    Type: Number
+
+  MaxSize:
+    Description: The maximum size of the auto scaling group
+    Type: Number
+
+  MinSize:
+    Description: The Minimum size of the auto scaling group
+    Type: Number
+
+  CloudWatchAgentDockerImage:
+    Description: The Docker Container Image Version Used to Push EC2 Logs to Cloudwatch Loggroup.
+    Type: String
+    Default: "amazon/cloudwatch-agent:1.247351.0b251861"
+
+  CWLogRetentionDays:
+    Description: Provide the number of days CW Agent Logs should be retained
+    Type: Number
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 180
+      - 360
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      Value: 127311923021
+    us-east-2:
+      Value: 033677994240
+    us-west-1:
+      Value: 027434742980
+    us-west-2:
+      Value: 797873946194
+    af-south-1:
+      Value: 098369216593
+    ca-central-1:
+      Value: 985666609251
+    eu-central-1:
+      Value: 054676820928
+    eu-west-1:
+      Value: 156460612806
+    eu-west-2:
+      Value: 652711504416
+    eu-south-1:
+      Value: 635631232127
+    eu-west-3:
+      Value: 009996457667
+    eu-north-1:
+      Value: 897822967062
+    ap-east-1:
+      Value: 754344448648
+    ap-northeast-1:
+      Value: 582318560864
+    ap-northeast-2:
+      Value: 600734575887
+    ap-northeast-3:
+      Value: 383597477331
+    ap-southeast-1:
+      Value: 114774131450
+    ap-southeast-2:
+      Value: 783225319266
+    ap-south-1:
+      Value: 718504428378
+    me-south-1:
+      Value: 076674570225
+    sa-east-1:
+      Value: 507241528517
+    us-gov-west-1:
+      Value: 048591011584
+    us-gov-east-1:
+      Value: 190560391635
+    cn-north-1:
+      Value: 638102146993
+    cn-northwest-1:
+      Value: 037604701340
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-Cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  LBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ClusterSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-LoadBalancerSG
+      VpcId: !Ref VPC
+      GroupDescription: ECS LoadBalancer Security Group to Allow External Traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref LBFromPort
+          ToPort: !Ref LBToPort
+          CidrIp: !Ref CIDRAllowed
+
+  ECSHostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DependsOn: LBSecurityGroup
+    Properties:
+      GroupName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECSClusterSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECSClusterSG
+      VpcId: !Ref VPC
+      GroupDescription: Access to the ECS hosts and the tasks/containers that run on them
+      SecurityGroupIngress:
+        # Only allow inbound access to ECS from the ELB
+        - SourceSecurityGroupId: !GetAtt LBSecurityGroup.GroupId
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+
+  ECSAutoScalingGroup:
+    DependsOn:
+      - ECSCluster
+      - ECSLaunchTemplate
+      - ECSHostSecurityGroup
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECS-ASG
+      VPCZoneIdentifier: !Ref EC2Subnets
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ECSLaunchTemplate
+        Version: !GetAtt ECSLaunchTemplate.LatestVersionNumber
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref ClusterSize
+      Tags:
+        - Key: Name
+          Value: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECS-ASG
+          PropagateAtLaunch: True
+
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: !Ref MinInstancesInService
+        MaxBatchSize: !Ref MaxBatchSize
+        PauseTime: PT5M
+
+  ECSLaunchTemplate:
+    Type: "AWS::EC2::LaunchTemplate"
+    DependsOn: ECSHostSecurityGroup
+    Properties:
+      LaunchTemplateName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECS-LT
+      LaunchTemplateData:
+        UserData:
+          "Fn::Base64": !Sub |
+            #!/bin/bash
+            #!/bin/bash
+            curl 'https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip' -o "awscliv2.zip"
+            sudo yum install -y unzip
+            sudo unzip awscliv2.zip
+            sudo ./aws/install
+            sudo rm -rvf awscliv2.zip
+            sudo yum install -y amazon-cloudwatch-agent 
+            sudo yum install -y aws-cfn-bootstrap hibagent
+            sudo /usr/bin/enable-ec2-spot-hibernation
+            sudo amazon-linux-extras disable docker
+            sudo amazon-linux-extras install -y ecs
+            sudo amazon-linux-extras install -y collectd
+            sudo systemctl enable --now --no-block ecs.service
+            echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config;
+            echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config;
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:${ECSCloudWatchParameter} -s
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a start
+            
+        IamInstanceProfile:
+          Name: !Ref ECSInstanceProfile
+        Placement:
+          Tenancy: default
+        ImageId: !Ref ECSAMI
+        InstanceType: !Ref InstanceType
+        SecurityGroupIds:
+          - !GetAtt ECSHostSecurityGroup.GroupId
+
+  # This IAM Role is attached to all of the ECS hosts. It is based on the default role
+  # published here:
+
+  # http://docs.aws.amazon.com/AmazonECS/latest/developerguide/instance_IAM_role.html
+  #
+  # You can add other IAM policy statements here to allow access from your ECS hosts
+  # to other AWS services. Please note that this role will be used by ALL containers
+  # running on the ECS host.
+
+  ECSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECSRole
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: ecs-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecs:CreateCluster"
+                  - "ecs:CreateService"
+                  - "ecs:DescribeServices"
+                  - "ecs:DeregisterContainerInstance"
+                  - "ecs:DiscoverPollEndpoint"
+                  - "ecs:Poll"
+                  - "ecs:RegisterContainerInstance"
+                  - "ecs:StartTelemetrySession"
+                  - "ecs:Submit*"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:BatchGetImage"
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:GetAuthorizationToken"
+                  - "ecs:RegisterTaskDefinition"
+                  - "autoscaling:CreateOrUpdateTags"
+                  - "autoscaling:Describe*"
+                  - "autoscaling:DeletePolicy"
+                  - "autoscaling:PutScalingPolicy"
+                  - "autoscaling:SetInstanceProtection"
+                  - "autoscaling:UpdateAutoScalingGroup"
+                  - "autoscaling-plans:CreateScalingPlan"
+                  - "autoscaling-plans:DeleteScalingPlan"
+                  - "autoscaling-plans:DescribeScalingPlans"
+                  - "cloudwatch:PutMetricData"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "ssm:GetParameter"
+                Resource: "arn:aws:ssm:ap-south-1:::parameter/AmazonCloudWatch-*"
+              - Effect: Allow
+                Action:
+                  - "iam:GetRole"
+                  - "iam:CreateRole"
+                  - "iam:DetachRolePolicy"
+                  - "iam:AttachRolePolicy"
+                  - "iam:PassRole"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetRandomPassword"
+                  - "secretsmanager:ListSecrets"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetResourcePolicy"
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                  - "secretsmanager:ListSecretVersionIds"
+                Resource: "*"
+
+  ECSInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECS-InstanceProfile
+      Path: /
+      Roles:
+        - !Ref ECSRole
+
+  ECSServiceAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-ECSServiceAutoScalingRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Action:
+            - "sts:AssumeRole"
+          Effect: Allow
+          Principal:
+            Service:
+              - application-autoscaling.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: ecs-service-autoscaling
+          PolicyDocument:
+            Statement:
+              Effect: Allow
+              Action:
+                - application-autoscaling:*
+                - cloudwatch:DescribeAlarms
+                - cloudwatch:PutMetricAlarm
+                - ecs:DescribeServices
+                - ecs:UpdateService
+              Resource: "*"
+
+  CapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      Name: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-CP
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref ECSAutoScalingGroup
+        ManagedScaling:
+          MaximumScalingStepSize: 10
+          MinimumScalingStepSize: 1
+          Status: ENABLED
+          TargetCapacity: 100
+        ManagedTerminationProtection: !Ref CapacityProviderTerminationProtection
+
+  CapacityProviderAssociations:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders:
+        - !Ref CapacityProvider
+      Cluster: !Ref ECSCluster
+      DefaultCapacityProviderStrategy:
+        - Base: 1
+          Weight: 1
+          CapacityProvider: !Ref CapacityProvider
+
+  ECSCloudWatchParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: ECS
+      Name: !Sub "${CountryCode}-${ApplicationName}-${EnvironmentName}-ECSAmazonCloudWatchParameters"
+      Type: String
+      Value: !Sub |
+        {
+          "logs": {
+            "force_flush_interval": 5,
+            "logs_collected": {
+              "files": {
+                "collect_list": [
+                  {
+                    "file_path": "/var/log/messages",
+                    "log_group_name": "${ECSCluster}-/var/log/messages",
+                    "log_stream_name": "{instance_id}",
+                    "timestamp_format": "%b %d %H:%M:%S",
+                    "auto_removal": true
+                  },
+                  {
+                    "file_path": "/var/log/dmesg",
+                    "log_group_name": "${ECSCluster}-/var/log/dmesg",
+                    "log_stream_name": "{instance_id}",
+                    "auto_removal": true
+                  },
+                  {
+                    "file_path": "/var/log/docker",
+                    "log_group_name": "${ECSCluster}-/var/log/docker",
+                    "log_stream_name": "{instance_id}",
+                    "timestamp_format": "%Y-%m-%dT%H:%M:%S.%f",
+                    "auto_removal": true
+                  },
+                  {
+                    "file_path": "/var/log/ecs/ecs-init.log",
+                    "log_group_name": "${ECSCluster}-/var/log/ecs/ecs-init.log",
+                    "log_stream_name": "{instance_id}",
+                    "timestamp_format": "%Y-%m-%dT%H:%M:%SZ",
+                    "auto_removal": true
+                  },
+                  {
+                    "file_path": "/var/log/ecs/ecs-agent.log.*",
+                    "log_group_name": "${ECSCluster}-/var/log/ecs/ecs-agent.log",
+                    "log_stream_name": "{instance_id}",
+                    "timestamp_format": "%Y-%m-%dT%H:%M:%SZ",
+                    "auto_removal": true
+                  },
+                  {
+                    "file_path": "/var/log/ecs/audit.log",
+                    "log_group_name": "${ECSCluster}-/var/log/ecs/audit.log",
+                    "log_stream_name": "{instance_id}",
+                    "timestamp_format": "%Y-%m-%dT%H:%M:%SZ",
+                    "auto_removal": true
+                  }
+                ]
+              }
+            }
+          },
+            "metrics": {
+                "append_dimensions": {
+                        "AutoScalingGroupName": "${!aws:AutoScalingGroupName}",
+                        "ImageId": "${!aws:ImageId}",
+                        "InstanceId": "${!aws:InstanceId}",
+                        "InstanceType": "${!aws:InstanceType}"
+                },
+            "metrics_collected": {
+              "collectd": {
+                "metrics_aggregation_interval": 60
+              },
+              "disk": {
+                "measurement": [
+                  "used_percent"
+                ],
+                "metrics_collection_interval": 60,
+                "resources": [
+                  "/"
+                ]
+              },
+              "mem": {
+                "measurement": [
+                  "mem_used_percent"
+                ],
+                "metrics_collection_interval": 60
+              },
+              "statsd": {
+                "metrics_aggregation_interval": 60,
+                "metrics_collection_interval": 10,
+                "service_address": ":8125"
+              }
+            }
+          }
+        }
+
+  ALBLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "sourcewiz-lb-logs-${AWS::AccountId}-${EnvironmentNameS3Bucket}"
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireLogs
+            ExpirationInDays: !Ref LBLogsRetentionDays
+            Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ALBLoggingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: ALBLogsBucket
+    Properties:
+      Bucket: !Ref ALBLogsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: "GiveAmazonRootAccessToTheBucket"
+            Action:
+              - "s3:PutObject"
+            Effect: "Allow"
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:s3:::"
+                  - Ref: "ALBLogsBucket"
+                  - "/*"
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ""
+                  - - "arn:aws:iam::"
+                    - !FindInMap [RegionMap, !Ref "AWS::Region", Value]
+                    - ":root"
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn: ALBLoggingBucketPolicy
+    Properties:
+      Name: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-LB
+      Subnets: !Ref LoadBalancerSubnets
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref LBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: "access_logs.s3.enabled"
+          Value: True
+        - Key: "access_logs.s3.bucket"
+          Value: !Ref ALBLogsBucket
+        - Key: access_logs.s3.prefix
+          Value: elblogs
+        - Key: deletion_protection.enabled
+          Value: !Ref ELBDeletionProtection
+
+    # We define a default target group here, as this is a mandatory Parameters
+    # while creating an Application Load Balancer Listener. This is not used, instead
+    # a target group is created per-service in each service template (../services/*)
+
+  CWEcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${CountryCode}-${ApplicationName}-${EnvironmentName}-CWECSTaskExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "ecs-tasks.amazonaws.com"
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        - "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+
+  #https://github.com/awsdocs/amazon-cloudwatch-user-guide/blob/master/doc_source/Container-Insights-metrics-ECS.md
+  CloudWatchLogsGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/ecs/ecs-cwagent-daemon-service/${CountryCode}-${ApplicationName}-${EnvironmentName}-LogGroup"
+      RetentionInDays: !Ref CWLogRetentionDays
+
+  CWECSTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      Family: ecs-cwagent-daemon-service
+      TaskRoleArn: !Ref CWEcsTaskExecutionRole
+      ExecutionRoleArn: !Ref CWEcsTaskExecutionRole
+      NetworkMode: bridge
+      ContainerDefinitions:
+        - Name: cloudwatch-agent
+          Image: !Ref CloudWatchAgentDockerImage
+          MountPoints:
+            - ReadOnly: True
+              ContainerPath: /rootfs/proc
+              SourceVolume: proc
+            - ReadOnly: True
+              ContainerPath: /rootfs/dev
+              SourceVolume: dev
+            - ReadOnly: True
+              ContainerPath: /sys/fs/cgroup
+              SourceVolume: al2_cgroup
+            - ReadOnly: True
+              ContainerPath: /cgroup
+              SourceVolume: al1_cgroup
+            - ReadOnly: True
+              ContainerPath: /rootfs/sys/fs/cgroup
+              SourceVolume: al2_cgroup
+            - ReadOnly: True
+              ContainerPath: /rootfs/cgroup
+              SourceVolume: al1_cgroup
+          Environment:
+            - Name: USE_DEFAULT_CONFIG
+              Value: "True"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-create-group: "True"
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: ecs
+      RequiresCompatibilities:
+        - EC2
+      Volumes:
+        - Name: proc
+          Host:
+            SourcePath: /proc
+        - Name: dev
+          Host:
+            SourcePath: /dev
+        - Name: al1_cgroup
+          Host:
+            SourcePath: /cgroup
+        - Name: al2_cgroup
+          Host:
+            SourcePath: /sys/fs/cgroup
+      Cpu: "128"
+      Memory: "64"
+  CWECSDaemonService:
+    Type: "AWS::ECS::Service"
+    DependsOn: CWECSTaskDefinition
+    Properties:
+      TaskDefinition: !Ref CWECSTaskDefinition
+      Cluster: !Ref ECSCluster
+      LaunchType: EC2
+      SchedulingStrategy: DAEMON
+      ServiceName: cwagent-daemon-service
+
+## The Output Section for all the exportable resources.
+## The Exported Outputs may be referenced in other Cloudformation Templates (Mainly Designed for Task Definition & Services)
+
+Outputs:
+  ECSClusterName:
+    Description: A reference to the ECS cluster Name.
+    Value: !Ref ECSCluster
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSClusterName"
+
+  ECSClusterARN:
+    Description: A reference to the ECS cluster ARN
+    Value: !GetAtt ECSCluster.Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSClusterARN"
+
+  LBSecurityGroup:
+    Description: A Reference to LoadBalancer SecurityGroup
+    Value: !GetAtt LBSecurityGroup.GroupId
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-LBSecurityGroup"
+
+  ECSHostSecurityGroup:
+    Description: A Reference to ECS Host VM SecurityGroup
+    Value: !GetAtt ECSHostSecurityGroup.GroupId
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSHostSecurityGroup"
+
+  ECSServiceAutoScalingRole:
+    Description: A reference to ECS service auto scaling role
+    Value: !GetAtt ECSServiceAutoScalingRole.Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSServiceAutoScalingRole"
+
+  ECSAutoScalingGroupName:
+    Description: A reference to ECS AutoScaling Group Name
+    Value: !Ref ECSAutoScalingGroup
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSAutoScalingGroupName"
+
+  ECSLaunchTemplate:
+    Description: The Latest Launch Template ID that ASG is referring to.
+    Value: !Ref ECSLaunchTemplate
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSLaunchTemplateID"
+
+  ECSLaunchTemplateVersion:
+    Description: The Latest Launch Template Version Details that ASG is referring to.
+    Value: !GetAtt ECSLaunchTemplate.LatestVersionNumber
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSLaunchTemplateVersion"
+
+  ECSRoleARN:
+    Description: The ECS Role ARN ID. This Role is being used by the ECS EC2 Cluster.
+    Value: !GetAtt ECSRole.Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSRoleARN"
+
+  ECSInstanceProfileARN:
+    Description: The ECS Instance Profile ARN.
+    Value: !GetAtt ECSInstanceProfile.Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSInstanceProfileARN"
+
+  ECSServiceAutoScalingRoleARN:
+    Description: The ECS Service AutoScaling Group Role ARN.
+    Value: !GetAtt ECSServiceAutoScalingRole.Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-ECSServiceAutoScalingRoleARN"
+
+  LoadBalancerUrl:
+    Description: The URL of the Application LoadBalancer.
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-LoadBalancerUrl"
+
+  LoadBalancerARN:
+    Description: The URL of the Application LoadBalancer.
+    Value: !Ref LoadBalancer
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-LoadBalancerARN"
+
+  CloudWatchParameter:
+    Description: A reference to SSM Paramter. All the ECS Custer - EC2 Monitoring Metrics parameters are being stored in Parameter Store as a file.
+    Value: !Ref ECSCloudWatchParameter
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-CloudWatchParameter"
+
+  CloudWatchAgentECSTaskDefinitionARN:
+    Description: A reference to Cloudwatch Agent ECS Task Definition ARN. This is used to push the EC2 Logs to Cloudwatch LogGroup.
+    Value: !Ref CWECSTaskDefinition
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-CWECSTaskDefinition"
+
+  CloudWatchLogsGroupName:
+    Description: A reference to Cloudwatch Log Group Name. This Loggroup Contains all the Container Insights.
+    Value: !Ref CloudWatchLogsGroup
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-CloudWatchLogsGroup"
+
+  CloudWatchLogsGroupARN:
+    Description: A reference to Cloudwatch Log Group ARN. This Loggroup Contains all the Container Insights.
+    Value: !GetAtt CloudWatchLogsGroup.Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-CloudWatchLogsGroupARN"
+
+  S3ALBLogsBucket:
+    Description: A reference to ALBLogsBucket
+    Value: !Ref ALBLogsBucket
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-S3ALBLogsBucket"
+
+  CapacityProvider:
+    Description: A reference to CapacityProvider
+    Value: !Ref CapacityProvider
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-CapacityProvider"

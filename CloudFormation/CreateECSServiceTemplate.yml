@@ -1,0 +1,238 @@
+Description: >
+  This is a template to create a long running ECS service
+
+Parameters:
+  VPC:
+    Description: The VPC that the ECS cluster is deployed to
+    Type: AWS::EC2::VPC::Id
+
+  ClusterArn:
+    Description: Please provide the ClusterArn of the ECS cluster where this service should run
+    Type: String
+    Default: arn:aws:ecs:ap-south-1:336028161198:cluster/IN-Sourcewiz-dev-Cluster
+
+  ClusterName:
+    Description: Please provide the name of the cluster where this service should run
+    Type: String
+    Default: IN-Sourcewiz-dev-Cluster
+
+  ContainerName:
+    Description: Please provide the container name of your service
+    Type: String
+
+  DesiredCount:
+    Description: How many instances of this task should we run across our cluster?
+    Type: Number
+    Default: 1
+
+  MaxCount:
+    Description: Maximum number of instances of this task we can run across our cluster
+    Type: Number
+    Default: 3
+
+  Path:
+    Description: The path to register with the Application Load Balancer
+    Type: String
+    Default: /
+
+  ContainerPort:
+    Description: The container port of the service
+    Type: Number
+    Default: 8056
+
+  CloudWatchLogsRetentionDays:
+    Description: The number of days to retain the logs
+    Type: Number
+    Default: 1
+
+  TargetGroupPort:
+    Description: The target group port for the service
+    Type: Number
+    Default: 8056
+
+  HttpsListener:
+    Description: Provide the load balancer HTTPS Listener ARN
+    Type: String
+    Default: arn:aws:elasticloadbalancing:ap-south-1:336028161198:listener/app/IN-Sourcewiz-dev-LB/934becbc036737bb/155ecd987405993c
+
+  HealthCheckIntervalSeconds:
+    Description: Provide HealthCheckInterval in Seconds
+    Type: Number
+    Default: 60
+
+  ServiceName:
+    Description: Provide the name of your service
+    Type: String
+    Default: python_file_service
+
+
+  TaskDefinition:
+    Description: Provide task definition ARN
+    Type: String
+    Default: arn:aws:ecs:ap-south-1:336028161198:task-definition/sourcewiz-direct-us:1
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  MaximumPercent:
+    Type: Number
+    Description: represents an upper limit on the number of your service's tasks that are allowed in the RUNNING or PENDING state during a deployment, as a percentage of the desiredCount (rounded down to the nearest integer)
+    Default: 200
+
+  MinimumHealthyPercent:
+    Type: Number
+    Description: minimum healthy percent represents a lower limit on the number of tasks in a service that must remain in the RUNNING state during a deployment, as a percentage of the desired number of tasks (rounded up to the nearest integer)
+    Default: 100
+
+  HealthCheckGracePeriodSeconds:
+    Type: Number
+    Description: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started
+    Default: 60
+
+  EnvironmentName:
+    Type: String
+    Description: Provide the environment name
+    Default: dev
+
+  ECSServiceRole:
+    Description: Provide the ECSServiceRole
+    Type: String 
+
+  CPUAutoScalingTargetValue:
+    Description: Provide the CPU AutoScalingTarget Value
+    Type: Number
+    Default: 70
+
+  CPUScaleInCooldownPeriod:
+    Description: Provide the CPU Scale In Cool Down Period in Seconds
+    Type: Number
+    Default: 60
+
+  CPUScaleOutCooldownPeriod:
+    Description: Provide the CPU Scale Out Cool Down Period in Seconds
+    Type: Number
+    Default: 60
+
+  HttpCode:
+    Description: Provide the expected HTTP Response code
+    Type: Number
+    Default: 200
+
+  HealthCheckTimeoutSeconds:
+    Description: Provide the health check time out seconds for target group
+    Type: Number
+    Default: 5
+
+  HealthyThresholdCount:
+    Description: Provide the healthy threshold count for target group
+    Type: Number
+    Default: 2
+
+  CapacityProvider:
+    Description: Please provide the name of the CapacityProvider
+    Type: String
+    Default: IN-Sourcewiz-dev-CP
+
+Resources:
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ListenerRule
+    Properties:
+      CapacityProviderStrategy:
+        - CapacityProvider: !Ref CapacityProvider
+          Base: 1
+          Weight: 1
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref ClusterArn
+    #  Role: !Ref ECSServiceRole
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      LoadBalancers:
+        - ContainerName: !Ref ContainerName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+      #      LaunchType: "EC2"
+      DeploymentConfiguration:
+        MaximumPercent: !Ref MaximumPercent
+        MinimumHealthyPercent: !Ref MinimumHealthyPercent
+        DeploymentCircuitBreaker:
+          Enable: false
+          Rollback: false
+      PlacementStrategies:
+        - Type: "spread"
+          Field: "attribute:ecs.availability-zone"
+        - Type: "spread"
+          Field: "instanceId"
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: "DISABLED"
+          SecurityGroups:
+            - !Ref SecurityGroup
+          Subnets: !Ref Subnets
+      HealthCheckGracePeriodSeconds: !Ref HealthCheckGracePeriodSeconds
+      SchedulingStrategy: "REPLICA"
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub python-backend-service-TG-${EnvironmentName}
+      VpcId: !Ref VPC
+      Port: !Ref TargetGroupPort
+      Protocol: HTTP
+      Matcher:
+        HttpCode: !Ref HttpCode
+      HealthCheckIntervalSeconds: !Ref HealthCheckIntervalSeconds
+      HealthCheckPath: !Ref Path
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: !Ref HealthCheckTimeoutSeconds
+      HealthyThresholdCount: !Ref HealthyThresholdCount
+      TargetType: ip
+
+  ListenerRule:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties: 
+      Priority: "11"
+      Conditions:
+        - Field: "host-header"
+          Values: 
+            - !Sub "api.sourcerer.tech"
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      ListenerArn: !Ref HttpsListener
+
+  # This IAM Role grants the service access to register/unregister with the
+  # Application Load Balancer (ALB). It is based on the default documented here:
+  # http://docs.aws.amazon.com/AmazonECS/latest/developerguide/service_IAM_role.html
+
+  ServiceScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    Properties:
+      MaxCapacity: !Ref MaxCount
+      MinCapacity: !Ref DesiredCount
+      RoleARN: !Ref ECSServiceRole
+      ResourceId: !Join
+        - /
+        - - service
+          - !Ref ClusterName
+          - !GetAtt Service.Name
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  CPUAutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join ["", [!Ref ServiceName, CPUAutoScalingPolicy]]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ServiceScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: !Ref CPUScaleInCooldownPeriod
+        ScaleOutCooldown: !Ref CPUScaleOutCooldownPeriod
+        # Keep things at or lower than 50% CPU utilization, for example
+        TargetValue: !Ref CPUAutoScalingTargetValue

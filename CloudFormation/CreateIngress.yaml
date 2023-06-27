@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prod-eks-ingress
+  namespace: kube-system
+  annotations:
+    spec.ingressClassName: "alb"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/security-groups: sg-083817d9155dc9bb1
+      #alb.ingress.kubernetes.io/subnets: subnet-0a9031412ec89a03c, subnet-0b2cbf01cd3b9aa08
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+         - path: /
+           pathType: Prefix
+           backend:
+             service:
+               name: my-service
+               port:
+                 number: 80

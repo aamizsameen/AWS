@@ -1,0 +1,1319 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Metadata:
+
+  AWS::CloudFormation::Interface:
+
+    ParameterGroups:
+    - Label:
+        default: RDS Engine Options
+      Parameters:
+      - RDSEngine
+      - EngineVersion
+      - EngineMode
+      - LicenseModel
+      - PortNo
+
+    - Label:
+        default: Availability and durability
+      Parameters:
+      - MultiAZ
+
+    - Label:
+        default: Credentials Settings
+      Parameters:
+      - DBInstanceIdentifiers
+      - DBClusterIdentifier
+      - InputUsernameAndPassword
+      - MasterUsername
+      - MasterUserPassword
+
+    - Label:
+        default: DB Instance Class
+      Parameters:
+      - DBInstanceType
+
+    - Label:
+        default: Storage Configuration
+      Parameters:
+      - StorageType
+      - DBAllocatedStorage
+
+    - Label:
+        default: Network Configuration
+      Parameters:
+      - VPC
+      - PubliclyAccessible
+      - PublicSubnet1
+      - PublicSubnet2
+      - PrivateSubnet1
+      - PrivateSubnet2
+      
+    - Label:
+        default: Additional Configuration
+      Parameters:
+      - DeleteAutomatedBackups
+      - BackupRetentionPeriod
+      - CopyTagsToSnapshot
+      - StorageEncrypted
+      - EnablePerformanceInsights
+      - EnableCloudwatchLogsExports
+      - AutoMinorVersionUpgrade
+      - AllowMajorVersionUpgrade
+      - DeletionProtection
+
+
+
+    ParameterLabels:
+      RDSEngine:
+        default: RDS Engine
+      EngineVersion:
+        default: Database Engine Version
+      EngineMode:
+        default: The DB Engine Mode of the DB Cluster
+      LicenseModel:
+        default: License Model
+      PortNo:
+        default: Database Port
+      MultiAZ:
+        default: Multi-AZ Deployment
+      DBInstanceIdentifiers:
+        default: DB Instance Identifier
+      DBClusterIdentifier:
+        default: DB Cluster Identifier
+      InputUsernameAndPassword:
+        default: Want to input Username and Password
+      MasterUsername:
+        default: Database Master Username
+      MasterUserPassword:
+        default: Database Master Password
+      DBInstanceType:
+        default: Database Instance Class
+      StorageType:
+        default: Storage Type
+      DBAllocatedStorage:
+        default: DB Allocated Storage
+      VPC:
+        default: Virtual Private Cloud (VPC)
+      PubliclyAccessible:
+        default: Publicly Accessiable
+      PublicSubnet1:
+        default: Public Subnet 1
+      PublicSubnet2:
+        default: Public Subnet 2
+      PrivateSubnet1:
+        default: Private Subnet 1
+      PrivateSubnet2:
+        default: Private Subnet 2
+      DeleteAutomatedBackups:
+        default: Delete Automated Backups
+      BackupRetentionPeriod:
+        default: Database Backup Retention Period
+      CopyTagsToSnapshot:
+        default: Copy Tage to Snapshot
+      StorageEncrypted:
+        default: Database Encryption Enabled
+      EnablePerformanceInsights:
+        default: Enable Performance Insights
+      EnableCloudwatchLogsExports:
+        default: Enable Cloudwatch Logs Exports
+      AutoMinorVersionUpgrade:
+        default: Database Auto Minor Version Upgrade
+      AllowMajorVersionUpgrade:
+        default: Database Auto Major Version Upgrade
+      DeletionProtection:
+        default: Deletion Protection
+      AuroraSecurityGroup:
+        default: Aurora Security Group
+
+
+
+Parameters:
+
+  RDSEngine:
+    Default: mysql
+    Description: Select a RDS Engine Type
+    Type: String
+    AllowedValues:
+    - aurora-mysql
+    - aurora-postgresql
+    - mariadb
+    - mysql
+    - oracle-ee
+    - oracle-se2
+    - postgres
+    - sqlserver-ee
+    - sqlserver-se
+    - sqlserver-ex
+    - sqlserver-web
+
+  EngineVersion:
+    Default: 8.0.28
+    Description: Select a Proper Engine version based on the Engine Type
+      - ( 1 ) Select Version 5.7.mysql_aurora.2.10.2 for Aurora MySQL Engine
+      - ( 2 ) Select Version 13.4 for Aurora PostgreSQL Engine or PostgreSQL Engine
+      - ( 3 ) Select Version 8.0.28 for MySQL Engine
+      - ( 4 ) Select Version 10.6.7 for MariaDB Engine
+      - ( 5 ) Select Version 19.0.0.0.ru-2022-01.rur-2022-01.r1 for Oracle Engine
+      - ( 6 ) Select Version 15.00.4153.1.v1 for SQL Server Engine
+    Type: String
+    AllowedValues:
+      - '5.7.mysql_aurora.2.10.2'
+      - 13.4
+      - 8.0.28
+      - 10.6.7
+      - 19.0.0.0.ru-2022-01.rur-2022-01.r1
+      - 15.00.4153.1.v1
+
+  LicenseModel:
+    Default: general-public-license
+    Description: Select from the given License Model information for the DB Instance
+      - ( 1 ) Select 'general-public-license' for aurora-mysql, MySDL, mariadb  
+      - ( 2 ) Select 'postgresql-license' for postgresql and aurora-postgresql  
+      - ( 3 ) Select 'license-included' for Oracle and SQL Server Engine
+    Type: String
+    AllowedValues:
+      - general-public-license
+      - postgresql-license
+      - license-included
+      - bring-your-own-license
+      
+  EngineMode:
+    Default: global
+    Description: Select a Engine Mode of the DB Cluster
+    Type: String
+    AllowedValues:
+    - multimaster
+    - parallelquery
+    - provisioned
+    - serverless
+    - global
+
+
+  PortNo:
+    Default: 3306
+    Description: Select a Port Number according to the DB Engine
+    Type: Number
+    AllowedValues:
+    - 3306
+    - 5432
+    - 1521
+    - 1433
+
+  MultiAZ:
+    Default: 'false'
+    Description: If you specify true, Creates a primary DB instance and a standby DB instance in a different AZ
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  DBInstanceIdentifiers:
+    Default: 'NewDB'
+    Description: Name for your DB Instance
+    Type: String
+
+
+  DBClusterIdentifier:
+    Default: 'NewDB'
+    Description: Name for your DB Cluster
+    Type: String
+
+  InputUsernameAndPassword:
+    Default: Yes
+    Description: Do you want to give the Username and Password on the Parameters?
+    Type: String
+    AllowedValues:
+    - Yes
+    - No
+
+  MasterUsername:
+    Description: Type a Master Username for your DB instance
+    Type: String
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+  MasterUserPassword:
+    NoEcho: 'true'
+    Type: String
+    MinLength: '8'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Must only contain upper and lowercase letters and numbers, minimum length is 8
+
+  DBInstanceType:
+    Default: db.t2.micro
+    Description: Choose an Instance Class, for Aurora DB choose 'db.r6g.large' or above
+    Type: String
+    AllowedValues:
+    - db.t2.2xlarge
+    - db.t2.xlarge
+    - db.t2.large
+    - db.t2.medium
+    - db.t2.small
+    - db.t2.micro
+    - db.t3.2xlarge
+    - db.t3.xlarge
+    - db.t3.large
+    - db.t3.medium
+    - db.t3.small
+    - db.t3.micro
+    - db.t4g.2xlarge
+    - db.t4g.xlarge
+    - db.t4g.large
+    - db.t4g.medium
+    - db.t4g.small
+    - db.t4g.micro
+    - db.r3.8xlarge
+    - db.r3.4xlarge
+    - db.r3.2xlarge
+    - db.r3.xlarge
+    - db.r3.large
+    - db.r4.16xlarge
+    - db.r4.8xlarge
+    - db.r4.4xlarge
+    - db.r4.2xlarge
+    - db.r4.xlarge
+    - db.r4.large
+    - db.r5.24xlarge
+    - db.r5.16xlarge
+    - db.r5.12xlarge
+    - db.r5.8xlarge
+    - db.r5.4xlarge
+    - db.r5.2xlarge
+    - db.r5.xlarge
+    - db.r5.large
+    - db.r5b.24xlarge
+    - db.r5b.16xlarge
+    - db.r5b.12xlarge
+    - db.r5b.8xlarge
+    - db.r5b.4xlarge
+    - db.r5b.2xlarge
+    - db.r5b.xlarge
+    - db.r5b.large
+    - db.r5d.24xlarge
+    - db.r5d.16xlarge
+    - db.r5d.12xlarge
+    - db.r5d.8xlarge
+    - db.r5d.4xlarge
+    - db.r5d.2xlarge
+    - db.r5d.xlarge
+    - db.r5d.large
+    - db.r6i.32xlarge
+    - db.r6i.24xlarge
+    - db.r6i.16xlarge
+    - db.r6i.12xlarge
+    - db.r6i.8xlarge
+    - db.r6i.4xlarge
+    - db.r6i.2xlarge
+    - db.r6i.xlarge
+    - db.r6i.large
+    - db.r6gd.16xlarge
+    - db.r6gd.12xlarge
+    - db.r6gd.8xlarge
+    - db.r6gd.4xlarge
+    - db.r6gd.2xlarge
+    - db.r6gd.xlarge
+    - db.r6gd.large
+    - db.r6g.16xlarge
+    - db.r6g.12xlarge
+    - db.r6g.8xlarge
+    - db.r6g.4xlarge
+    - db.r6g.2xlarge
+    - db.r6g.xlarge
+    - db.r6g.large
+    - db.m6g.16xlarge
+    - db.m6g.12xlarge
+    - db.m6g.8xlarge
+    - db.m6g.4xlarge
+    - db.m6g.2xlarge
+    - db.m6g.xlarge
+    - db.m6g.large
+    - db.m6gd.16xlarge
+    - db.m6gd.12xlarge
+    - db.m6gd.8xlarge
+    - db.m6gd.4xlarge
+    - db.m6gd.2xlarge
+    - db.m6gd.xlarge
+    - db.m6gd.large
+    - db.m6i.32xlarge
+    - db.m6i.24xlarge
+    - db.m6i.16xlarge
+    - db.m6i.12xlarge
+    - db.m6i.8xlarge
+    - db.m6i.4xlarge
+    - db.m6i.2xlarge
+    - db.m6i.xlarge
+    - db.m6i.large
+    - db.m5d.24xlarge
+    - db.m5d.16xlarge
+    - db.m5d.12xlarge
+    - db.m5d.8xlarge
+    - db.m5d.4xlarge
+    - db.m5d.2xlarge
+    - db.m5d.xlarge
+    - db.m5d.large
+    - db.m5.24xlarge
+    - db.m5.16xlarge
+    - db.m5.12xlarge
+    - db.m5.8xlarge
+    - db.m5.4xlarge
+    - db.m5.2xlarge
+    - db.m5.xlarge
+    - db.m5.large
+    - db.m4.16xlarge
+    - db.m4.10xlarge
+    - db.m4.4xlarge
+    - db.m4.2xlarge
+    - db.m4.xlarge
+    - db.m4.large
+    - db.m3.2xlarge
+    - db.m3.xlarge
+    - db.m3.large
+    - db.m3.medium
+    - db.m1.xlarge
+    - db.m1.large
+    - db.m1.medium
+    - db.m1.small
+    - db.x2g.16xlarge
+    - db.x2g.12xlarge
+    - db.x2g.8xlarge
+    - db.x2g.4xlarge
+    - db.x2g.2xlarge
+    - db.x2g.xlarge
+    - db.x2g.large
+    - db.z1d.12xlarge
+    - db.z1d.6xlarge
+    - db.z1d.3xlarge
+    - db.z1d.2xlarge
+    - db.z1d.xlarge
+    - db.z1d.large
+    - db.x1e.32xlarge
+    - db.x1e.16xlarge
+    - db.x1e.8xlarge
+    - db.x1e.4xlarge
+    - db.x1e.2xlarge
+    - db.x1e.xlarge
+    - db.x1.32xlarge
+    - db.x1.16xlarge
+
+  StorageType:
+    Default: 'gp2'
+    Description: Select a Storage type, not required for Aurora DB
+    Type: String
+    AllowedValues:
+    - standard
+    - gp2
+    - io1
+
+  DBAllocatedStorage:
+    Default: '20'
+    Description: The size of the database (GiB)
+    Type: Number
+    MinValue: '20'
+    MaxValue: '65536'
+    ConstraintDescription: must be between 20 and 65536 GiB. 
+
+  VPC:
+    Description: Select a VPC
+    Type: AWS::EC2::VPC::Id
+
+  PubliclyAccessible:
+    Default: 'false'
+    Description: If you specify true, AWS CloudFormation creates an instance with a publicly resolvable DNS name
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+
+  PublicSubnet1:
+    Description: Select the PublicSubnet1
+    Type: AWS::EC2::Subnet::Id
+
+  PublicSubnet2:
+    Description: Select the PublicSubnet2
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet1:
+    Description: Select the PrivateSubnet1
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet2:
+    Description: Select the PrivateSubnet2
+    Type: AWS::EC2::Subnet::Id    
+
+  DeleteAutomatedBackups:
+    Default: 'false'
+    Description: This indicates whether to remove automated backups immediately after the DB instance is deleted.
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  BackupRetentionPeriod:
+    Default: '7'
+    Description: The number of days (1-35) for which automatic backups are kept.
+    Type: Number
+
+  CopyTagsToSnapshot:
+    Default: 'true'
+    Description: If you specify true, this will copy tags from the DB instance to snapshots of the DB instance.
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  StorageEncrypted:
+    Default: 'false'
+    Description: If you specify true, this will encrypt DB instance
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  EnablePerformanceInsights:
+    Default: 'false'
+    Description: If you specify true, this will enable Performance Insights for the DB instance
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  EnableCloudwatchLogsExports:
+    Default: audit
+    Description: Choose from the list of log types that need to be enabled for exporting to CloudWatch Logs
+      - MariaDB Valid values - audit, error, general, slowquery
+      - Microsoft SQL Server Valid values - agent, error
+      - MySQL Valid values - audit, error, general, slowquery
+      - Oracle Valid values - alert, audit, listener, trace
+      - PostgreSQL Valid values - postgresql, upgrade
+      - Aurora MySQL Valid values - audit, error, general, slowquery
+      - Aurora PostgreSQL Valid values - postgresql
+    Type: CommaDelimitedList
+    AllowedValues: [ audit, error, general, slowquery, agent, alert, listener, trace, postgresql, upgrade]
+
+  AutoMinorVersionUpgrade:
+    Default: 'true'
+    Description: Automatically upgrade to new minor versions as they are released.
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  AllowMajorVersionUpgrade:
+    Default: 'false'
+    Description: Automatically upgrade to new Major versions as they are released.
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  DeletionProtection:
+    Default: 'false'
+    Description: The database can't be deleted when deletion Protection is enabled.
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+    
+  AuroraSecurityGroup:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Aurora Security Group
+
+Conditions:
+
+  AuroraMySQLUsernameAndPassword1:
+    !And [ !Equals [ !Ref RDSEngine , aurora-mysql ], !Equals [ !Ref InputUsernameAndPassword , Yes ], 
+    !Equals [ !Ref PubliclyAccessible , 'true']]
+
+  AuroraMySQLUsernameAndPassword2:
+    !And [ !Equals [ !Ref RDSEngine , aurora-mysql ], !Equals [ !Ref InputUsernameAndPassword , Yes ], 
+    !Equals [ !Ref PubliclyAccessible , 'false']]
+
+  AuroraMySQLSecretsManagerUsernameAndPassword1:
+    !And [ !Equals [ !Ref RDSEngine , aurora-mysql ], !Equals [ !Ref InputUsernameAndPassword , No ],
+    !Equals [ !Ref PubliclyAccessible , 'false']]
+    
+  AuroraMySQLSecretsManagerUsernameAndPassword2:
+    !And [ !Equals [ !Ref RDSEngine , aurora-mysql ], !Equals [ !Ref InputUsernameAndPassword , No ],
+    !Equals [ !Ref PubliclyAccessible , 'true']]
+    
+  AuroraPostgreSQLUsernameAndPassword1:
+    !And [ !Equals [ !Ref RDSEngine , aurora-postgresql],!Equals [ !Ref InputUsernameAndPassword , Yes ], 
+    !Equals [ !Ref PubliclyAccessible , 'true']]
+    
+  AuroraPostgreSQLUsernameAndPassword2:
+    !And [ !Equals [ !Ref RDSEngine , aurora-postgresql],!Equals [ !Ref InputUsernameAndPassword , Yes ], 
+    !Equals [ !Ref PubliclyAccessible , 'false']]
+
+  AuroraPostgreSQLSecretsManagerUsernameAndPassword1:
+    !And [ !Equals [ !Ref RDSEngine , aurora-postgresql],!Equals [ !Ref InputUsernameAndPassword , No ], 
+    !Equals [ !Ref PubliclyAccessible , 'false']]
+
+  AuroraPostgreSQLSecretsManagerUsernameAndPassword2:
+    !And [ !Equals [ !Ref RDSEngine , aurora-postgresql],!Equals [ !Ref InputUsernameAndPassword , No ], 
+    !Equals [ !Ref PubliclyAccessible , 'true']]
+
+  UsernameAndPassword1:
+    !And [ !Equals [ !Ref InputUsernameAndPassword , Yes ], !Equals [ !Ref PubliclyAccessible , 'true'], 
+    !Or [!Equals [!Ref "RDSEngine", mysql], !Equals [!Ref "RDSEngine", mariadb], !Equals [!Ref "RDSEngine", postgres],
+    !Equals [!Ref "RDSEngine", oracle-ee], !Equals [!Ref "RDSEngine", oracle-se2], !Equals [!Ref "RDSEngine", sqlserver-ee],
+    !Equals [!Ref "RDSEngine", sqlserver-se], !Equals [!Ref "RDSEngine", sqlserver-ex], !Equals [!Ref "RDSEngine", sqlserver-web]]]
+
+  UsernameAndPassword2:
+    !And [ !Equals [ !Ref InputUsernameAndPassword , Yes ], !Equals [ !Ref PubliclyAccessible , 'false'],
+    !Or [!Equals [!Ref "RDSEngine", mysql], !Equals [!Ref "RDSEngine", mariadb], !Equals [!Ref "RDSEngine", postgres],
+    !Equals [!Ref "RDSEngine", oracle-ee], !Equals [!Ref "RDSEngine", oracle-se2], !Equals [!Ref "RDSEngine", sqlserver-ee],
+    !Equals [!Ref "RDSEngine", sqlserver-se], !Equals [!Ref "RDSEngine", sqlserver-ex], !Equals [!Ref "RDSEngine", sqlserver-web]]]
+
+  SecretsManagerUsernameAndPassword1:
+    !And [ !Equals [ !Ref InputUsernameAndPassword , No ], !Equals [ !Ref PubliclyAccessible , 'true'],
+    !Or [!Equals [!Ref "RDSEngine", mysql], !Equals [!Ref "RDSEngine", mariadb], !Equals [!Ref "RDSEngine", postgres],
+    !Equals [!Ref "RDSEngine", oracle-ee], !Equals [!Ref "RDSEngine", oracle-se2], !Equals [!Ref "RDSEngine", sqlserver-ee],
+    !Equals [!Ref "RDSEngine", sqlserver-se], !Equals [!Ref "RDSEngine", sqlserver-ex], !Equals [!Ref "RDSEngine", sqlserver-web]]]
+
+  SecretsManagerUsernameAndPassword2:
+    !And [ !Equals [ !Ref InputUsernameAndPassword , No ], !Equals [ !Ref PubliclyAccessible , 'false'],
+    !Or [!Equals [!Ref "RDSEngine", mysql], !Equals [!Ref "RDSEngine", mariadb], !Equals [!Ref "RDSEngine", postgres],
+    !Equals [!Ref "RDSEngine", oracle-ee], !Equals [!Ref "RDSEngine", oracle-se2], !Equals [!Ref "RDSEngine", sqlserver-ee],
+    !Equals [!Ref "RDSEngine", sqlserver-se], !Equals [!Ref "RDSEngine", sqlserver-ex], !Equals [!Ref "RDSEngine", sqlserver-web]]]
+
+
+Resources:
+  RDSAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS Security Group
+      GroupName: RDS-SG-01
+      VpcId:
+        Ref: VPC
+
+  PrivateDbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private Subnets for RDS
+      SubnetIds:
+      - Ref: PrivateSubnet1
+      - Ref: PrivateSubnet2
+
+  PublicDbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Public Subnets for RDS
+      SubnetIds:
+      - Ref: PublicSubnet1
+      - Ref: PublicSubnet2
+
+  SecretsManagerAdmin:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Description: AWS RDS admin credentials
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "aamiz"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+
+  DbInstance1:
+    Condition: UsernameAndPassword1
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 
+        Ref: DBAllocatedStorage
+      AllowMajorVersionUpgrade: 
+        Ref: AllowMajorVersionUpgrade
+      AutoMinorVersionUpgrade: 
+        Ref: AutoMinorVersionUpgrade
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBInstanceClass:
+        Ref: DBInstanceType
+      DBInstanceIdentifier: 
+        Ref: DBInstanceIdentifiers
+ 
+      DBSubnetGroupName:
+        Ref: PublicDbSubnetGroup
+      DeleteAutomatedBackups: 
+        Ref: DeleteAutomatedBackups
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EnablePerformanceInsights: 
+        Ref: EnablePerformanceInsights
+      EngineVersion:
+        Ref: EngineVersion
+      LicenseModel:
+        Ref: LicenseModel
+      MasterUsername:
+        Ref: MasterUsername
+      MasterUserPassword:
+        Ref: MasterUserPassword
+      MultiAZ:
+        Ref: MultiAZ
+      Port: 
+        Ref: PortNo
+      PubliclyAccessible: 
+        Ref: PubliclyAccessible
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      StorageType: 
+        Ref: StorageType
+      VPCSecurityGroups:
+      - Ref: RDSAccessSecurityGroup
+      Tags:
+      - Key: Name
+        Value: PROD-RDS
+
+  DbInstance2:
+    Condition: UsernameAndPassword2
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 
+        Ref: DBAllocatedStorage
+      AllowMajorVersionUpgrade: 
+        Ref: AllowMajorVersionUpgrade
+      AutoMinorVersionUpgrade: 
+        Ref: AutoMinorVersionUpgrade
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBInstanceClass:
+        Ref: DBInstanceType
+      DBInstanceIdentifier: 
+        Ref: DBInstanceIdentifiers
+
+      DBSubnetGroupName:
+        Ref: PrivateDbSubnetGroup
+      DeleteAutomatedBackups: 
+        Ref: DeleteAutomatedBackups
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EnablePerformanceInsights: 
+        Ref: EnablePerformanceInsights
+      EngineVersion:
+        Ref: EngineVersion
+      LicenseModel:
+        Ref: LicenseModel
+      MasterUsername:
+        Ref: MasterUsername
+      MasterUserPassword:
+        Ref: MasterUserPassword
+      MultiAZ:
+        Ref: MultiAZ
+      Port: 
+        Ref: PortNo
+      PubliclyAccessible: 
+        Ref: PubliclyAccessible
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      StorageType: 
+        Ref: StorageType
+      VPCSecurityGroups:
+      - Ref: RDSAccessSecurityGroup
+      Tags:
+      - Key: Name
+        Value: PROD-RDS
+
+  DbInstance3:
+    Condition: SecretsManagerUsernameAndPassword1
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 
+        Ref: DBAllocatedStorage
+      AllowMajorVersionUpgrade: 
+        Ref: AllowMajorVersionUpgrade
+      AutoMinorVersionUpgrade: 
+        Ref: AutoMinorVersionUpgrade
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBInstanceClass:
+        Ref: DBInstanceType
+      DBInstanceIdentifier: 
+        Ref: DBInstanceIdentifiers
+ 
+      DBSubnetGroupName:
+        Ref: PublicDbSubnetGroup
+      DeleteAutomatedBackups: 
+        Ref: DeleteAutomatedBackups
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EnablePerformanceInsights: 
+        Ref: EnablePerformanceInsights
+      EngineVersion:
+        Ref: EngineVersion
+      LicenseModel:
+        Ref: LicenseModel
+      MasterUsername: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::password}}'
+      MultiAZ:
+        Ref: MultiAZ
+      Port: 
+        Ref: PortNo
+      PubliclyAccessible: 
+        Ref: PubliclyAccessible
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      StorageType: 
+        Ref: StorageType
+      VPCSecurityGroups:
+      - Ref: RDSAccessSecurityGroup
+      Tags:
+      - Key: Name
+        Value: PROD-RDS
+
+  DbInstance4:
+    Condition: SecretsManagerUsernameAndPassword2
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 
+        Ref: DBAllocatedStorage
+      AllowMajorVersionUpgrade: 
+        Ref: AllowMajorVersionUpgrade
+      AutoMinorVersionUpgrade: 
+        Ref: AutoMinorVersionUpgrade
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBInstanceClass:
+        Ref: DBInstanceType
+      DBInstanceIdentifier: 
+        Ref: DBInstanceIdentifiers
+
+      DBSubnetGroupName:
+        Ref: PrivateDbSubnetGroup
+      DeleteAutomatedBackups: 
+        Ref: DeleteAutomatedBackups
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EnablePerformanceInsights: 
+        Ref: EnablePerformanceInsights
+      EngineVersion:
+        Ref: EngineVersion
+      LicenseModel:
+        Ref: LicenseModel
+      MasterUsername: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::password}}'
+      MultiAZ:
+        Ref: MultiAZ
+      Port: 
+        Ref: PortNo
+      PubliclyAccessible: 
+        Ref: PubliclyAccessible
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      StorageType: 
+        Ref: StorageType
+      VPCSecurityGroups:
+      - Ref: RDSAccessSecurityGroup
+      Tags:
+      - Key: Name
+        Value: PROD-RDS
+        
+
+
+  Dbcluster1:
+    Condition: AuroraMySQLUsernameAndPassword1
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PublicDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+
+      MasterUsername: 
+        Ref: MasterUsername
+      MasterUserPassword: 
+        Ref: MasterUserPassword
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+        
+  AuroraInstance1:
+    Condition: AuroraMySQLUsernameAndPassword1
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster1
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+  Dbcluster2:
+    Condition: AuroraMySQLUsernameAndPassword2
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PublicDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+
+      MasterUsername: 
+        Ref: MasterUsername
+      MasterUserPassword: 
+        Ref: MasterUserPassword
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+        
+  AuroraInstance2:
+    Condition: AuroraMySQLUsernameAndPassword2
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster2
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+  Dbcluster3:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword1
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PrivateDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+
+      MasterUsername: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::password}}'
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+  AuroraInstance3:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword1
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster3
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+  Dbcluster4:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword2
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PrivateDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+
+      MasterUsername: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::password}}'
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+  AuroraInstance4:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword2
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster4
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+
+  Dbcluster5:
+    Condition: AuroraPostgreSQLUsernameAndPassword1
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PublicDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+ 
+      MasterUsername: 
+        Ref: MasterUsername
+      MasterUserPassword: 
+        Ref: MasterUserPassword
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+  AuroraInstance5:
+    Condition: AuroraPostgreSQLUsernameAndPassword1
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster5
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+  Dbcluster6:
+    Condition: AuroraPostgreSQLUsernameAndPassword2
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PublicDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+ 
+      MasterUsername: 
+        Ref: MasterUsername
+      MasterUserPassword: 
+        Ref: MasterUserPassword
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+  AuroraInstance6:
+    Condition: AuroraPostgreSQLUsernameAndPassword2
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster6
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+
+  Dbcluster7:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword1
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PrivateDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+
+      MasterUsername: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::password}}'
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+
+  AuroraInstance7:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword1
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster4
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+
+  Dbcluster8:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword2
+    Type: AWS::RDS::DBCluster
+    Properties: 
+
+      BackupRetentionPeriod: 
+        Ref: BackupRetentionPeriod
+      CopyTagsToSnapshot: 
+        Ref: CopyTagsToSnapshot
+      DBClusterIdentifier: 
+        Ref: DBClusterIdentifier
+
+      DBSubnetGroupName: 
+        Ref: PrivateDbSubnetGroup
+      DeletionProtection: 
+        Ref: DeletionProtection
+      EnableCloudwatchLogsExports: 
+        Ref: EnableCloudwatchLogsExports
+      Engine: 
+        Ref: RDSEngine
+      EngineMode: 
+        Ref: EngineMode
+
+      EngineVersion: 
+        Ref: EngineVersion
+
+      MasterUsername: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${SecretsManagerAdmin}::password}}'
+      Port: 
+        Ref: PortNo
+
+      StorageEncrypted: 
+        Ref: StorageEncrypted
+      Tags: 
+      - Key: Name
+        Value: Aurora-RDS
+      VpcSecurityGroupIds: 
+        Ref: AuroraSecurityGroup
+
+
+  AuroraInstance8:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword2
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBClusterIdentifier: 
+        Ref: Dbcluster4
+      DBInstanceClass: 
+        Ref: DBInstanceType
+      Engine: 
+        Ref: RDSEngine
+
+
+Outputs:
+
+  PrivateDbSubnetGroup:
+    Value: !Ref PrivateDbSubnetGroup
+  PublicDbSubnetGroup:
+    Value: !Ref PublicDbSubnetGroup
+  SecretsManagerAdmin:
+    Value: !Ref SecretsManagerAdmin
+  RDSAccessSecurityGroup:
+    Value: !Ref RDSAccessSecurityGroup
+  DbInstance1:
+    Condition: UsernameAndPassword1
+    Value: !Ref DbInstance1
+  DbInstance2:
+    Condition: UsernameAndPassword2
+    Value: !Ref DbInstance2
+  DbInstance3:
+    Condition: SecretsManagerUsernameAndPassword1
+    Value: !Ref DbInstance3
+  DbInstance4:
+    Condition: SecretsManagerUsernameAndPassword2
+    Value: !Ref DbInstance4
+  Dbcluster1:
+    Condition: AuroraMySQLUsernameAndPassword1
+    Value: !Ref Dbcluster1
+  AuroraInstance1:
+    Condition: AuroraMySQLUsernameAndPassword1
+    Value: !Ref AuroraInstance1
+  Dbcluster2:
+    Condition: AuroraMySQLUsernameAndPassword2
+    Value: !Ref Dbcluster2
+  AuroraInstance2:
+    Condition: AuroraMySQLUsernameAndPassword2
+    Value: !Ref AuroraInstance2
+  Dbcluster3:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword1
+    Value: !Ref Dbcluster3
+  AuroraInstance3:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword1
+    Value: !Ref AuroraInstance3
+  Dbcluster4:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword2
+    Value: !Ref Dbcluster4
+  AuroraInstance4:
+    Condition: AuroraMySQLSecretsManagerUsernameAndPassword2
+    Value: !Ref AuroraInstance4
+  Dbcluster5:
+    Condition: AuroraPostgreSQLUsernameAndPassword1
+    Value: !Ref Dbcluster5
+  AuroraInstance5:
+    Condition: AuroraPostgreSQLUsernameAndPassword1
+    Value: !Ref AuroraInstance5
+  Dbcluster6:
+    Condition: AuroraPostgreSQLUsernameAndPassword2
+    Value: !Ref Dbcluster6
+  AuroraInstance6:
+    Condition: AuroraPostgreSQLUsernameAndPassword2
+    Value: !Ref AuroraInstance6
+  Dbcluster7:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword1
+    Value: !Ref Dbcluster7
+  AuroraInstance7:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword1
+    Value: !Ref AuroraInstance7
+  Dbcluster8:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword2
+    Value: !Ref Dbcluster8
+  AuroraInstance8:
+    Condition: AuroraPostgreSQLSecretsManagerUsernameAndPassword2
+    Value: !Ref AuroraInstance8

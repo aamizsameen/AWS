@@ -1,0 +1,642 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: My Root Template.
+
+Metadata:
+
+  AWS::CloudFormation::Interface:
+
+    ParameterGroups:
+
+    - Label:
+        default: Network Configuration
+      Parameters:
+      - NumberOfAZs
+      - AvailabilityZones 
+      - WantVpcFlowLogs
+      - WantDataBaseTier
+      - WantNatGatewayForPrivateSubnet
+      - WantNatGatewayForDataBaseSubnets
+
+    - Label:
+        default: Compute Configuration
+      Parameters:
+      -  LoadBalancerScheme
+      -  ALBLogs
+      -  LogBucket
+      -  BucketNameForLog
+      -  HavehttpsWebsite
+      -  BucketCreation
+      -  LaunchInstanceAs
+      -  DeploymentType
+      -  KeyName
+      -  ImageId
+      -  SecurityGroupForASGInstances
+      -  LaunchInstanceIn
+      -  InstanceType
+      -  VolumeSizeFortheDevice
+      -  MachineType
+      -  MaxSizeForASG
+      -  MinSizeForASG
+      -  DesiredInstanceCountForASG
+      -  ElasticIPforStandAlone
+      -  StandAloneInstanceAvalilabilityZone
+
+    - Label:
+        default: DB Configuration
+      
+      Parameters:
+      - RDSEngine
+      - EngineVersion
+      - LicenseModel
+      - PortNo
+      - MultiAZ
+      - InputUsernameAndPassword
+      - DBInstanceType
+      - MasterUsername
+      - MasterUserPassword
+      - DBAllocatedStorage
+      - PubliclyAccessible
+      - BackupRetentionPeriod
+      - EnableCloudwatchLogsExports
+      - AuroraSecurityGroup
+
+    - Label:
+        default: Cloud Front Configuration
+
+      Parameters:
+      - AcmCertificateArn
+      - AlbDnsName
+      - DomainName
+      - RecordType
+      - RecordName
+      - OriginConfig
+      - BucketName
+
+    ParameterLabels:
+      NumberOfAZs:
+        default: Number of AZ's
+      AvailabilityZones:
+        default: Availability Zones
+      WantVpcFlowLogs:
+        default: Want VPC Flow logs
+      WantDataBaseTier:
+        default: Want DB Tier
+      WantNatGatewayForPrivateSubnet:
+        default: Want Nat Gateway for Private Subnet
+      WantNatGatewayForDataBaseSubnets:
+        default: Want Nat Gateway for Database Subnet
+
+      RDSEngine:
+        default: RDS Engine
+      EngineVersion:
+        default: Engine Version
+      LicenseModel:
+        default: License Model
+      PortNo:
+        default: Port No
+      MultiAZ:
+        default: Multi AZ
+      InputUsernameAndPassword:
+        default: Want to Input Username and Password
+      DBInstanceType:
+        default: DB Instance Type
+      MasterUsername:
+        default: Master Username
+      MasterUserPassword:
+        default: Master Password
+      DBAllocatedStorage:
+        default: DB Allocated Storage
+      PubliclyAccessible:
+        default: Publicly Accessible 
+      BackupRetentionPeriod:
+        default: Backup Retention Period
+      EnableCloudwatchLogsExports:
+        default: Enable CloudwatchLogs Exports
+      AuroraSecurityGroup:
+        default: Aurora Security Group
+
+
+      LoadBalancerScheme:
+        default: Load Balancer Scheme
+      ALBLogs:
+        default: ALB Logs
+      LogBucket:
+        default: Log Bucket
+      BucketNameForLog:
+        default: Bucket Name for Log
+      HavehttpsWebsite:
+        default: Have HTTPS Website
+      BucketCreation:
+        default: Bucket Creation
+      LaunchInstanceAs:
+        default: Launch Instance as
+      DeploymentType:
+        default: Deployment Type
+      KeyName:
+        default: Key Name
+      ImageId:
+        default: Image ID
+      SecurityGroupForASGInstances:
+        default: Security Group for ASG
+      LaunchInstanceIn:
+        default: Launch Instance In
+      InstanceType:
+        default: Instance Type
+      VolumeSizeFortheDevice:
+        default: Volume Size
+      MachineType:
+        default: Machine Type
+      MaxSizeForASG:
+        default: Max Size for ASG
+      MinSizeForASG:
+        default: Min Size for ASG
+      DesiredInstanceCountForASG:
+        default: Desired Instance for ASG
+      ElasticIPforStandAlone:
+        default: Elastic IP for Stand Alone
+      StandAloneInstanceAvalilabilityZone:
+        default: Standalone Instance AZ
+
+
+
+      AcmCertificateArn:
+        default: ACM Certificate Arn
+      AlbDnsName:
+        default: ALB DNS Name
+      DomainName:
+        default: Domain Name
+      RecordType:
+        default: Record Type
+      RecordName:
+        default: Record Name
+      OriginConfig:
+        default: Origin Config
+      BucketName:
+        default: Bucket Name
+
+Parameters:
+
+  AvailabilityZones:
+    Description: 'List of Availability Zones to use for the subnets in the VPC. Note: The logical order is preserved.'
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    
+
+  WantDataBaseTier:
+    AllowedValues:
+    - 'no'
+    - 'yes'
+    Default: 'yes'
+    Description: "Want Database or Not? If Yes, Select Yes"
+    Type: String
+    
+  NumberOfAZs:
+    AllowedValues:
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    Default: 2
+    Description: Number of Availability Zones to use in the VPC. This must match your
+      selections in the list of Availability Zones parameter.
+    Type: Number
+
+  WantNatGatewayForPrivateSubnets:
+    AllowedValues:
+    - 'no'
+    - 'yes'
+    Default: 'no'
+    Description: "Want NatGateway for Private Subnet or Not? If Yes, Select Yes"
+    Type: String
+
+  WantNatGatewayForDataBaseSubnets:
+    AllowedValues:
+    - 'no'
+    - 'yes'
+    Default: 'no'
+    Description: "Want NatGateway for Database Subnet or Not? If Yes, Select Yes"
+    Type: String
+
+  WantVpcFlowLogs:
+   AllowedValues:
+   - 'enable'
+   - 'disable'
+   Default: 'enable'
+   Description: "Want VpcFlowlogs or Not? If Yes, Select enable"
+   Type: String
+      
+
+
+  RDSEngine:
+    Default: mysql
+    Description: Select a RDS Engine Type
+    Type: String
+    AllowedValues:
+    - aurora-mysql
+    - aurora-postgresql
+    - mariadb
+    - mysql
+    - oracle-ee
+    - oracle-se2
+    - postgres
+    - sqlserver-ee
+    - sqlserver-se
+    - sqlserver-ex
+    - sqlserver-web
+
+  EngineVersion:
+    Default: 8.0.28
+    Description: Select a Proper Engine version based on the Engine Type
+      - ( 1 ) Select Version 5.7.mysql_aurora.2.10.2 for Aurora MySQL Engine
+      - ( 2 ) Select Version 13.4 for Aurora PostgreSQL Engine or PostgreSQL Engine
+      - ( 3 ) Select Version 8.0.28 for MySQL Engine
+      - ( 4 ) Select Version 10.6.7 for MariaDB Engine
+      - ( 5 ) Select Version 19.0.0.0.ru-2022-01.rur-2022-01.r1 for Oracle Engine
+      - ( 6 ) Select Version 15.00.4153.1.v1 for SQL Server Engine
+    Type: String
+    AllowedValues:
+      - '5.7.mysql_aurora.2.10.2'
+      - 13.4
+      - 8.0.28
+      - 10.6.7
+      - 19.0.0.0.ru-2022-01.rur-2022-01.r1
+      - 15.00.4153.1.v1
+
+  LicenseModel:
+    Default: general-public-license
+    Description: Select from the given License Model information for the DB Instance
+      - ( 1 ) Select 'general-public-license' for aurora-mysql, MySDL, mariadb  
+      - ( 2 ) Select 'postgresql-license' for postgresql and aurora-postgresql  
+      - ( 3 ) Select 'license-included' for Oracle and SQL Server Engine
+    Type: String
+    AllowedValues:
+      - general-public-license
+      - postgresql-license
+      - license-included
+      - bring-your-own-license
+
+  PortNo:
+    Default: 3306
+    Description: Select a Port Number according to the DB Engine
+    Type: Number
+    AllowedValues:
+    - 3306
+    - 5432
+    - 1521
+    - 1433
+
+  MultiAZ:
+    Default: 'false'
+    Description: If you specify true, Creates a primary DB instance and a standby DB instance in a different AZ
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  InputUsernameAndPassword:
+    Default: Yes
+    Description: Do you want to give the Username and Password on the Parameters?
+    Type: String
+    AllowedValues:
+    - Yes
+    - No
+
+  MasterUsername:
+    Description: Type a Master Username for your DB instance
+    Type: String
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+  MasterUserPassword:
+    NoEcho: 'true'
+    Type: String
+    MinLength: '8'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Must only contain upper and lowercase letters and numbers, minimum length is 8
+
+  DBInstanceType:
+    Default: db.t2.micro
+    Description: Choose an Instance Class, for Aurora DB choose 'db.r6g.large' or above
+    Type: String
+    AllowedValues:
+    - db.t2.2xlarge
+    - db.t2.xlarge
+    - db.t2.large
+    - db.t2.medium
+    - db.t2.small
+    - db.t2.micro
+
+  DBAllocatedStorage:
+    Default: '20'
+    Description: The size of the database (GiB)
+    Type: Number
+    MinValue: '20'
+    MaxValue: '65536'
+    ConstraintDescription: must be between 20 and 65536 GiB. 
+
+  PubliclyAccessible:
+    Default: 'false'
+    Description: If you specify true, AWS CloudFormation creates an instance with a publicly resolvable DNS name
+    Type: String
+    AllowedValues: 
+    - true
+    - false
+
+  BackupRetentionPeriod:
+    Default: '7'
+    Description: The number of days (1-35) for which automatic backups are kept.
+    Type: Number
+
+  EnableCloudwatchLogsExports:
+    Default: audit
+    Description: Choose from the list of log types that need to be enabled for exporting to CloudWatch Logs
+      - MariaDB Valid values - audit, error, general, slowquery
+      - Microsoft SQL Server Valid values - agent, error
+      - MySQL Valid values - audit, error, general, slowquery
+      - Oracle Valid values - alert, audit, listener, trace
+      - PostgreSQL Valid values - postgresql, upgrade
+      - Aurora MySQL Valid values - audit, error, general, slowquery
+      - Aurora PostgreSQL Valid values - postgresql
+    Type: String
+    AllowedValues: 
+    - audit
+    - error
+    - general
+    - slowquery
+    - agent
+    - alert
+    - listener
+    - trace
+    - postgresql
+    - upgrade
+    
+  AuroraSecurityGroup:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: If Aurora DB Engine is selected then choose a Security Group for Aurora Engine
+
+
+
+  LoadBalancerScheme:
+    Description: 'Indicates whether the load balancer in front of the EC2service is internet-facing or internal.'
+    Type: String
+    Default: 'internet-facing'
+    AllowedValues:
+    - 'internet-facing'
+    - 'internal'
+
+  ALBLogs:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+    - 'true'
+    - 'false'
+
+  LogBucket:
+    Description: Enter the Name of Existing S3 Bucket where the Loadbalancer logs are to be stored.
+    Type: String
+    Default: Log-Test-Bucket
+
+  BucketNameForLog:
+    Type: String
+    Description: Enter a Bucket Name for New Bucket to store Loadbalancer logs.
+    Default: mys3bucetfortesting0123
+
+
+  HavehttpsWebsite:
+    Type: String
+    Description: Having https website and want to add certificate?
+    Default: 'no'
+    AllowedValues:
+    - 'yes'
+    - 'no'
+
+  BucketCreation:
+    Type: String
+    Description: Do you want to create a New Bucket or use the Existing Bucket to store loadbalancer logs?
+    Default: NoBucket 
+    AllowedValues:
+    - 'NewBucket'
+    - 'ExistingBucket'
+    - 'NoBucket'
+
+  LaunchInstanceAs:
+    Description: Do you want to launch instance in Autoscaling group or as StandaloneInstance ?
+    Type: String
+    Default: Standalone
+    AllowedValues:
+    - 'AutoscalingGroup'
+    - 'Standalone'
+
+  DeploymentType:
+    Description: Create Autoscaling group using Launch Template or Launch Configuration
+    Type: String
+    Default: NoValue  
+    AllowedValues:
+    - 'LaunchTemplate'
+    - 'LaunchConfiguration'
+    - 'NoValue'
+
+  KeyName:
+    Description: Select the Key pair that is used to login into the instance.
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: 'NewKey'
+
+  ImageId:
+    Description: Enter the Image ID required for the Instances. 
+    Type: AWS::EC2::Image::Id
+    Default:  ami-0cff7528ff583bf9a
+
+  LaunchInstanceIn:
+   Description: Do you want instances launched by Autoscaling group in private or public subnet ?
+   Type: String
+   Default: NoValue
+   AllowedValues:
+   - 'Private'
+   - 'Public'
+   - 'NoValue' 
+
+  InstanceType:
+    Default: t2.micro
+    Description: Select the Instance type.
+    Type: String
+
+  VolumeSizeFortheDevice:
+    Type: String
+    Description: Select the Volume Size that is required fo the Device.
+    Default: '20'
+
+  MachineType:
+    Type: String
+    Description: Select the type of Operating system 'Ubuntu' or 'Amazon Linux 2 AMI'.
+    Default: 'amazon-linux-2'
+    AllowedValues:
+    - 'ubuntu'
+    - 'amazon-linux-2'
+
+  MaxSizeForASG:
+    Type: Number
+    Default: 1
+    Description: Select the maximum number of Instances required to be in the AutoScalingGroup.
+
+  MinSizeForASG:
+    Type: Number
+    Default: 1
+    Description: Select the minimum number of Instances required to be in the AutoScalingGroup.
+
+  DesiredInstanceCountForASG:
+    Type: Number
+    Default: 1
+    Description: Select the desired instance count in the AutoScaling Group
+
+  ElasticIPforStandAlone:
+    Type: String
+    Default: 'no'
+    Description: Select the Elastic IP for StandAlone Instance if required.
+    AllowedValues:
+      - 'yes'
+      - 'no'
+
+  StandAloneInstanceAvalilabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Select an AvailabilityZone where the standalone instance is to be launched
+
+
+
+  AcmCertificateArn:
+    Default: arn:aws:acm:us-west-2:108970575545:certificate/0125c8b7-bd0d-4bef-b165-7d798e40260f
+    Type: String
+    Description: The ARN of the SSL certificate to use for the CloudFront distribution.
+
+  AlbDnsName:
+    Type: String
+    Description: The DNS Name of the ALB
+    
+  DomainName:
+    Default: priman.tk
+    Type: String
+    Description: Domain name 
+    
+  RecordType:
+    Default: 'A'
+    Type: String
+    Description: Choose a Record Type
+    AllowedValues:
+      - 'A'
+      - 'AAAA'
+      - 'CNAME'
+      - 'MX'
+      - 'TXT'
+      - 'PTR'
+      - 'SRV'
+      - 'SPF'
+      - 'NAPTR'
+      - 'CAA'
+      
+  RecordName:
+    Default: priman.tk
+    Type: String
+    Description: Enter the Record Name
+
+
+  OriginConfig:
+    Type: String
+    Default: 'CustomConfig'
+    Description: Choose the required Origin Config
+    AllowedValues:
+    - StaticWebsite
+    - CustomConfig
+
+  BucketName:
+    Default: 'cloudfront-axcess-bucket-1'
+    Type: String
+    Description: Enter the Bucket Name
+
+
+Resources:
+
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+        TemplateURL: https://s3-external-1.amazonaws.com/cf-templates-1xk77y9facd4q-us-east-1/2022215rjT-new.template9k5wqnmv1op
+        Parameters:
+          AvailabilityZones: !Join 
+          - ','
+          - !Ref AvailabilityZones
+
+
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: https://s3-external-1.amazonaws.com/cf-templates-1xk77y9facd4q-us-east-1/2022215ZfH-new.templatenn39xv8api
+      Parameters:
+        PrivateSubnet: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+        PublicSubnet: !GetAtt NetworkStack.Outputs.PublicSubnet1
+        SubnetIdForStandaloneInstance: !GetAtt NetworkStack.Outputs.PublicSubnet0
+        StandAloneInstanceAvalilabilityZone: !Ref StandAloneInstanceAvalilabilityZone
+        SecurityGroupForASGInstances: !GetAtt NetworkStack.Outputs.EC2AccessSecurityGroup
+        ALBSecurityGroup: !GetAtt NetworkStack.Outputs.EC2AccessSecurityGroup
+        StandaloneInstanceSecurityGroup: !GetAtt NetworkStack.Outputs.EC2AccessSecurityGroup
+        VPCName: !GetAtt NetworkStack.Outputs.Vpc
+
+        LoadBalancerScheme: !Ref LoadBalancerScheme
+        ALBLogs: !Ref ALBLogs
+        LogBucket: !Ref LogBucket
+        BucketNameForLog: !Ref BucketNameForLog
+        HavehttpsWebsite: !Ref HavehttpsWebsite
+        BucketCreation: !Ref BucketCreation
+        LaunchInstanceAs: !Ref LaunchInstanceAs
+        DeploymentType: !Ref DeploymentType
+        KeyName: !Ref KeyName
+        ImageId: !Ref ImageId
+        LaunchInstanceIn: !Ref LaunchInstanceIn
+        InstanceType: !Ref InstanceType
+        VolumeSizeFortheDevice: !Ref VolumeSizeFortheDevice
+        MachineType: !Ref MachineType
+        MaxSizeForASG: !Ref MaxSizeForASG
+        MinSizeForASG: !Ref MinSizeForASG
+        DesiredInstanceCountForASG: !Ref DesiredInstanceCountForASG
+        ElasticIPforStandAlone: !Ref ElasticIPforStandAlone
+        
+  DBStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: https://s3-external-1.amazonaws.com/cf-templates-1xk77y9facd4q-us-east-1/202221782A-new.templatelpefy12s7dp
+      Parameters:
+        RDSEngine: !Ref RDSEngine
+        EngineVersion: !Ref EngineVersion
+        LicenseModel: !Ref LicenseModel
+        PortNo: !Ref PortNo
+        MultiAZ: !Ref MultiAZ
+        InputUsernameAndPassword: !Ref InputUsernameAndPassword
+        DBInstanceType: !Ref DBInstanceType
+        DBAllocatedStorage: !Ref DBAllocatedStorage
+        PubliclyAccessible: !Ref PubliclyAccessible
+        BackupRetentionPeriod: !Ref BackupRetentionPeriod
+        EnableCloudwatchLogsExports: !Ref EnableCloudwatchLogsExports
+        MasterUsername: !Ref MasterUsername
+        MasterUserPassword: !Ref MasterUserPassword
+
+        AuroraSecurityGroup: !Join 
+          - ','
+          - !Ref AuroraSecurityGroup
+        
+        PublicSubnet1: !GetAtt NetworkStack.Outputs.PublicSubnet0
+        PublicSubnet2: !GetAtt NetworkStack.Outputs.PublicSubnet1
+        PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet0
+        PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+        VPC: !GetAtt NetworkStack.Outputs.Vpc
+
+
+  CDNStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3-external-1.amazonaws.com/cf-templates-1xk77y9facd4q-us-east-1/2022216EMB-template1sa5l49ktqq
+      Parameters:
+        AcmCertificateArn: !Ref AcmCertificateArn
+        AlbDnsName: !Ref AlbDnsName
+        DomainName: !Ref DomainName
+        RecordName: !Ref RecordName
+        OriginConfig: !Ref OriginConfig
+        BucketName: !Ref BucketName
