@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Create SERVICE_CONTROL_POLICY and TAG_POLICY to enforce tagging while creating EC2 instance
+
+Parameters:
+  OrganizationRoot:
+    Description: Organization ID
+    Type: String
+
+Resources:
+  TagEnforcementOrganizationSCP:
+    Type: 'AWS::Organizations::Policy'
+    Properties:
+      TargetIds:
+        - Ref: OrganizationRoot
+      Name: EC2TagEnforcement
+      Description: Tag Enforcement on EC2 and EBS Volume
+      Type: SERVICE_CONTROL_POLICY
+      Content: |-
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "Statement1",
+              "Effect": "Deny",
+              "Action": [
+                "ec2:RunInstances"
+              ],
+              "Resource": [
+                "arn:aws:ec2:*:*:instance/*",
+                "arn:aws:ec2:*:*:volume/*"
+              ],
+              "Condition": {
+                "Null": {
+                  "aws:RequestTag/Env": "true"
+                }
+              }
+            },
+            {
+              "Sid": "Statement2",
+              "Effect": "Allow",
+              "Action": "*",
+              "Resource": "*"
+            }
+          ]
+        }
+      Tags:
+        - Key: DoNotDelete
+          Value: true
+
+  TagPolicyForResources:
+    Type: 'AWS::Organizations::Policy'
+    Properties:
+      Name: EC2CreatingEnforceTagPolicy
+      Description: Enabling the Tag Key and Tag Values for the EC2 instances
+      Type: TAG_POLICY
+      Content: |-
+        {
+          "tags": {
+            "Env": {
+              "tag_key": {
+                "@@assign": "Env"
+              },
+              "tag_value": {
+                "@@assign": [
+                  "Prod",
+                  "Dev",
+                  "UAT"
+                ]
+              },
+              "enforced_for": {
+                "@@assign": [
+                  "ec2:instance"
+                ]
+              }
+            }
+          }
+        }
