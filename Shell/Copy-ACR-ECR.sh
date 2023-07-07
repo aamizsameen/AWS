@@ -18,5 +18,9 @@ for i in $repos; do
 
         docker push 1234567890.dkr.ecr.ap-south-1.amazonaws.com/repo:$i-$j
 
+        echo "Image $i-$j pushed to ECR"
+
+        sleep 2s
+
     done
 done
