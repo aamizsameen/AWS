@@ -10,13 +10,16 @@ for i in $repos; do
     for j in $images; do
         echo $i":"$j
 
-        docker pull example.azurecr.io/$i:$j
+        docker pull aamizreg.azurecr.io/$i:$j
 
-        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 1234567890.dkr.ecr.ap-south-1.amazonaws.com
+        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 321145698548.dkr.ecr.ap-south-1.amazonaws.com
 
-        docker image tag example.azurecr.io/$i:$j 1234567890.dkr.ecr.ap-south-1.amazonaws.com/repo:$i-$j
+        docker image tag aamizreg.azurecr.io/$i:$j 321145698548.dkr.ecr.ap-south-1.amazonaws.com/aamizsameen:$i-$j
 
-        docker push 1234567890.dkr.ecr.ap-south-1.amazonaws.com/repo:$i-$j
+        docker push 321145698548.dkr.ecr.ap-south-1.amazonaws.com/aamizsameen:$i-$j
 
+        echo "Image $i-$j pushed to ECR"
+
+        sleep 5s
     done
 done
