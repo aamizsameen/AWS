@@ -1,3 +1,5 @@
+# This policy enforces EC2 and EBS Volume to add the tag name as Env and tag value as Prod/Dev/UAT
+
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   Create SERVICE_CONTROL_POLICY and TAG_POLICY to enforce tagging while creating EC2 instance
