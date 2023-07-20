@@ -1,3 +1,5 @@
+#Shell script to list all the repository and tags from Azure Container Regisrty (ACR)
+
 #!/bin/bash
 
 echo "Enter the registry name: "
