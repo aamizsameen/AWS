@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: asr-cronjob
+spec:
+  schedule: "30 18 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: asr-sa
+          containers:
+          - name: asr-deployment-scheduler
+            image: bitnami/kubectl:latest  # A custom image with kubectl installed
+            command:
+            - /bin/sh
+            - -c
+            - kubectl scale deployment asr --replicas=3
+          restartPolicy: OnFailure
