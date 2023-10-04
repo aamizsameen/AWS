@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: asr-ws-role
+  name: asr-role
 rules:
 - apiGroups: ["apps"]
   resources: ["deployments"]   # This resource is specific to deployment
