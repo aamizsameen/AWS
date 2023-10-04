@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: asr-ws-role-binding
+subjects:
+- kind: ServiceAccount
+  name: asr-ws-sa  # Replace with your ServiceAccount name
+  namespace: default
+roleRef:
+  kind: Role
+  name: asr-ws-role  # Reference the Role created
+  apiGroup: rbac.authorization.k8s.io
