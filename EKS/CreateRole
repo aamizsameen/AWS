@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: asr-ws-role
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]   # This resource is specific to deployment
+  verbs: ["get", "list", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments/scale"]  # This resource is specific to scaling the deployment 
+  verbs: ["patch","update"]
