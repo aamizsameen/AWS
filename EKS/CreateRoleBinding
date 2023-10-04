@@ -4,7 +4,7 @@ metadata:
   name: asr-ws-role-binding
 subjects:
 - kind: ServiceAccount
-  name: asr-ws-sa  # Replace with your ServiceAccount name
+  name: asr-sa  # Replace with your ServiceAccount name
   namespace: default
 roleRef:
   kind: Role
