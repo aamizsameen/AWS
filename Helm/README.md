@@ -1,6 +1,6 @@
-*Helm Commands*
+**Helm Commands**
 
-~To create a new repo:~
+To create a new repo:
 
 Helm create <repo-name>
 
