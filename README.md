@@ -3,7 +3,7 @@
 Welcome to the AWS Projects Repository! This repository contains a collection of projects and code examples for various AWS services and other open-source tools, aimed at helping you learn and implement AWS solutions effectively.
 
 ## Table of Contents
-- ![CloudFormation]([https://d1.awsstatic.com/product-marketing/CloudFormation/CloudFormation_logo%402x.38b9d9e53f8e2f3ce6a6266d14a5f6510a62c00d.png](https://www.google.com/url?sa=i&url=https%3A%2F%2Fcommons.wikimedia.org%2Fwiki%2FFile%3AAmazon_Web_Services_Logo.svg&psig=AOvVaw3N7Rla-bp6SUg-IhAz4aPB&ust=1717172687216000&source=images&cd=vfe&opi=89978449&ved=0CBIQjRxqFwoTCJDPyfHktYYDFQAAAAAdAAAAABAE)) CloudFormation [CloudFormation](#cloudformation)
+- [CloudFormation](#cloudformation)
 - [CodePipeline](#codepipeline)
 - [Docker](#docker)
 - [EKS](#eks)
