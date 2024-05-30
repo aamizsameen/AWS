@@ -5,7 +5,7 @@
 helm create <repo-name>
 
 # To add the remote repo:
-helm repo add <prometheus-community> https://prometheus-community.github.io/helm-charts
+helm repo add <prometheus-community> <https://prometheus-community.github.io/helm-charts>
 
 # To update the remote repo:
 helm repo update
