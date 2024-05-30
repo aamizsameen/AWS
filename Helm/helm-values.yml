@@ -1,0 +1,14 @@
+# Default values for unocoin-staging-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+frontendLandingDeploy:
+  image: 431014405065.dkr.ecr.ap-south-1.amazonaws.com/frontend-landing-staging:1.0
+  containerPort: 8000
+  name: frontend-landing-app
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
