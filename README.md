@@ -17,7 +17,7 @@
 ---
 
 ## CloudFormation
-:aws: [AWS CloudFormation](https://github.com/aamizsameen/AWS/tree/main/CloudFormation) helps you model and set up your Amazon Web Services resources using templates. Here, you'll find examples and best practices for creating and managing CloudFormation stacks.
+[AWS CloudFormation](https://github.com/aamizsameen/AWS/tree/main/CloudFormation) helps you model and set up your Amazon Web Services resources using templates. Here, you'll find examples and best practices for creating and managing CloudFormation stacks.
 
 ## CodePipeline
 [AWS CodePipeline](https://github.com/aamizsameen/AWS/tree/main/CodePipeline) a continuous integration and continuous delivery service for fast and reliable application and infrastructure updates. This section contains scripts and configurations for setting up CI/CD pipelines.
