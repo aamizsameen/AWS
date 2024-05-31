@@ -53,7 +53,7 @@ Feel free to explore each project by clicking on the links above. Each folder co
 
 ---
 
-## Features
+## Features / Fixes
 - [ ] Standardize the Helm [templates](https://github.com/aamizsameen/AWS/tree/main/Helm/templates/) and [values.yml](https://github.com/aamizsameen/AWS/tree/main/Helm/values.yml)
 - [x] Standardize the EKS manifest files.
 
