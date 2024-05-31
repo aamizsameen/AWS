@@ -51,5 +51,10 @@
 ## Additional Information
 Feel free to explore each project by clicking on the links above. Each folder contains specific details and code related to the respective AWS service.
 
+---
+
+## Features
+- [] Standardize the Helm templates and values.yaml
+
 ### Author
 Created by [Aamiz Sameen](https://github.com/aamizsameen)
