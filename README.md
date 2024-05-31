@@ -55,6 +55,7 @@ Feel free to explore each project by clicking on the links above. Each folder co
 
 ## Features
 - [ ] Standardize the Helm templates and values.yaml
+- [x] Standardize the EKS manifest files.
 
 ### Author
 Created by [Aamiz Sameen](https://github.com/aamizsameen)
