@@ -3,9 +3,9 @@
 # Declare variables to be passed into your templates.
 
 frontendLandingDeploy:
-  image: 431014405065.dkr.ecr.ap-south-1.amazonaws.com/frontend-landing-staging:1.0
-  containerPort: 8000
-  name: frontend-landing-app
+  image: nginx:latest
+  containerPort: 80
+  name: nginx-app
 
 nodeSelector: {}
 
